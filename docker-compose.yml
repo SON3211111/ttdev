@@ -43,6 +43,9 @@ services:
     restart: unless-stopped
     environment:
       API_TARGET: http://backend:8080
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     ports:
       - "127.0.0.1:5173:5173"
     depends_on:
@@ -57,10 +60,22 @@ services:
     environment:
       OLLAMA_URL: http://ollama:11434
       AI_MODEL: qwen2.5:1.5b
+      EMBEDDING_MODEL: bge-m3
+      QDRANT_URL: http://qdrant:6333
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
       - ollama
+      - qdrant
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: dev-qdrant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
 
   ollama:
     image: ollama/ollama:latest
@@ -80,3 +95,4 @@ services:
 volumes:
   mysql_data:
   ollama_data:
+  qdrant_data:

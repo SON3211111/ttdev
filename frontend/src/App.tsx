@@ -83,14 +83,13 @@ function App() {
         fontFamily: 'Arial, sans-serif',
       }}
     >
-      <h1>AI Integration Test</h1>
+      <h1>AI 테스트</h1>
 
       <p>
         React → Spring Boot → FastAPI → Ollama
       </p>
 
       <div style={{ marginTop: '30px' }}>
-        <h2>Ask AI</h2>
 
         <textarea
           value={prompt}

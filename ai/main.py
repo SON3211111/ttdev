@@ -33,6 +33,13 @@ async def generate(request: GenerateRequest):
                 f"{OLLAMA_URL}/api/generate",
                 json={
                     "model": AI_MODEL,
+                    "system": (
+                        "항상 한국어로 답하세요. "
+                        "질문이 영어 등 다른 언어여도 답변은 한국어로 작성하세요. "
+                        "다른 언어는 사용자가 명시적으로 요청한 경우에만 사용하세요."
+                        " Respond in Korean even when the question is in English, "
+                        "unless the user explicitly requests another response language."
+                    ),
                     "prompt": request.prompt,
                     "stream": False
                 }
