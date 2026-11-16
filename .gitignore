@@ -1,0 +1,36 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Frontend
+**/node_modules/
+**/dist/
+**/.vite/
+
+# Backend
+**/.gradle/
+**/build/
+**/out/
+*.class
+
+# Python
+**/__pycache__/
+**/.venv/
+**/venv/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Local database and logs
+**/mysql_data/
+**/data/mysql/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
