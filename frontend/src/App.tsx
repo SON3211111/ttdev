@@ -33,9 +33,29 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error(
-          `API request failed: ${response.status}`
-        )
+        let message = 'AI 요청 중 오류가 발생했습니다.'
+
+        try {
+          const errorData = await response.json()
+
+          if (typeof errorData.error === 'string') {
+            message = errorData.error
+          }
+        } catch {
+          // JSON 오류 응답이 없는 경우
+        }
+
+        if (response.status === 400) {
+          message = '질문을 올바르게 입력해주세요.'
+        } else if (response.status === 502) {
+          message = 'AI 서버 요청 처리에 실패했습니다.'
+        } else if (response.status === 503) {
+          message = 'AI 서버에 연결할 수 없습니다.'
+        } else if (response.status === 504) {
+          message = 'AI 응답 시간이 초과되었습니다.'
+        }
+
+        throw new Error(message)
       }
 
       const data: AiResponse = await response.json()
@@ -47,7 +67,7 @@ function App() {
       setError(
         err instanceof Error
           ? err.message
-          : 'An unexpected error occurred.'
+          : '알 수 없는 오류가 발생했습니다.'
       )
     } finally {
       setLoading(false)
@@ -75,7 +95,7 @@ function App() {
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Enter your question here..."
+          placeholder="AI에게 질문을 입력하세요..."
           rows={5}
           style={{
             width: '100%',
@@ -99,25 +119,29 @@ function App() {
             borderRadius: '8px',
           }}
         >
-          {loading ? 'Generating...' : 'Send Question'}
+          {loading ? '답변 생성 중...' : '질문 전송'}
         </button>
       </div>
 
       {loading && (
         <p style={{ marginTop: '20px' }}>
-          AI is generating a response...
+          AI가 답변을 생성하고 있습니다...
         </p>
       )}
 
       {error && (
-        <p
+        <div
+          role="alert"
           style={{
-            color: 'red',
             marginTop: '20px',
+            padding: '14px',
+            color: '#b91c1c',
+            backgroundColor: '#fee2e2',
+            borderRadius: '8px',
           }}
         >
           {error}
-        </p>
+        </div>
       )}
 
       {answer && (

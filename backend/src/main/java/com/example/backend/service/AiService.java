@@ -5,12 +5,14 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.core.JacksonException;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.Map;
 
 @Service
@@ -23,16 +25,21 @@ public class AiService {
             @Value("${AI_SERVER_URL:http://localhost:8000}") String aiServerUrl,
             ObjectMapper objectMapper
     ) {
-        // HTTP/1.1 강제 사용
+        // HTTP/1.1 유지
         HttpClient httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(10))
                 .build();
+
+        // AI 응답 대기 시간: 180초
+        JdkClientHttpRequestFactory requestFactory =
+                new JdkClientHttpRequestFactory(httpClient);
+
+        requestFactory.setReadTimeout(Duration.ofSeconds(180));
 
         this.restClient = RestClient.builder()
                 .baseUrl(aiServerUrl)
-                .requestFactory(
-                        new JdkClientHttpRequestFactory(httpClient)
-                )
+                .requestFactory(requestFactory)
                 .build();
 
         this.objectMapper = objectMapper;
@@ -54,7 +61,7 @@ public class AiService {
                     .body(jsonBody)
                     .retrieve()
                     .body(
-                            new org.springframework.core.ParameterizedTypeReference<
+                            new ParameterizedTypeReference<
                                     Map<String, Object>
                             >() {}
                     );
