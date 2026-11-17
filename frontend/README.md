@@ -15,3 +15,5 @@ npm.cmd run build
 실행 설정·환경변수·브라우저 검증은 [루트 README](../README.md), 현재 범위는 [HANDOFF](../docs/HANDOFF.md)를 따릅니다.
 
 다음 5단계는 캘린더에서 미래 날짜를 선택해 일정을 미리 등록하고 조회·수정·삭제·상태 변경하는 흐름입니다. 홈은 다가오는 일정 확인용으로 유지하며 별도 일정 관리 탭을 복원하지 않습니다. 현재 캘린더는 기록만 표시합니다.
+
+일기 작성은 DiaryForm.tsx/DiaryForm.css의 전용 카드로 표시합니다. 작성 중에는 빠른 메모를 숨기되 컴포넌트와 초안은 유지합니다. verify-diary-ui.cjs는 모의 API로 반응형과 입력 보존·저장 상태를, verify-stage3-ui.cjs는 실제 일기 CRUD를 검증합니다.

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { recordsApi } from '../../api/records'
 import { today, dateString } from '../../utils/date'
-import './RecordDetail.css'
+import './DiaryForm.css'
 type Props = { onClose: () => void; onSaved: (date: string) => void }
 export default function DiaryForm({ onClose, onSaved }: Props) {
  const [title, setTitle] = useState('')
@@ -18,12 +18,35 @@ export default function DiaryForm({ onClose, onSaved }: Props) {
   catch (error) { setError(error instanceof Error ? error.message : '저장하지 못했습니다.') }
   finally { lock.current = false; setBusy(false) }
  }
- return <section className="record-detail" aria-labelledby="diary-heading" aria-busy={busy}>
- <h2 id="diary-heading">일기 쓰기</h2><form onSubmit={save}>
- <label>기록 날짜<input type="date" required min="1000-01-01" max={dateString(new Date())} value={date} disabled={busy} onChange={e => setDate(e.target.value)} /></label>
- <label>제목 (선택)<input autoFocus maxLength={100} value={title} disabled={busy} onChange={e => setTitle(e.target.value)} /></label>
- <label>일기 본문<textarea required maxLength={10000} value={content} disabled={busy} onChange={e => setContent(e.target.value)} /></label>
- <p>{content.length.toLocaleString()} / 10,000</p>{error && <p role="alert">{error}</p>}
- <div className="detail-actions"><button disabled={busy || !content.trim()}>{busy ? '저장 중…' : '일기 저장'}</button><button type="button" disabled={busy} onClick={onClose}>취소</button></div>
- </form></section>
+ return <section className="diary-composer" aria-labelledby="diary-heading" aria-busy={busy}>
+  <header className="diary-header">
+   <div className="diary-intro">
+    <span className="diary-mark" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 5.5 18.5 9.5M5 19l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L5 19Z"/><path d="M4 22h16"/></svg></span>
+    <div><p className="diary-eyebrow">나를 위한 기록</p><h2 id="diary-heading">일기 쓰기</h2></div>
+   </div>
+   <button type="button" className="diary-close" aria-label="일기 작성 닫기" disabled={busy} onClick={onClose}>×</button>
+  </header>
+  <form onSubmit={save}>
+   <fieldset disabled={busy}>
+    <div className="diary-date-row">
+     <label htmlFor="diary-date">기록 날짜</label>
+     <input id="diary-date" type="date" required min="1000-01-01" max={dateString(new Date())} value={date} onChange={e => setDate(e.target.value)} />
+    </div>
+    <div className="diary-title-field">
+     <label htmlFor="diary-title">제목 (선택)</label>
+     <input id="diary-title" autoFocus maxLength={100} value={title} placeholder="오늘을 한 문장으로 남긴다면" onChange={e => setTitle(e.target.value)} />
+    </div>
+    <div className="diary-content-field">
+     <label htmlFor="diary-content">일기 본문</label>
+     <textarea id="diary-content" required maxLength={10000} value={content} placeholder={'어떤 하루를 보냈나요?\n기억하고 싶은 순간과 마음을 자유롭게 적어보세요.'} onChange={e => setContent(e.target.value)} />
+     <div className="diary-writing-meta"><span>작은 순간도 소중한 기억이 돼요.</span><span>{content.length.toLocaleString()} / 10,000</span></div>
+    </div>
+    {error && <p role="alert" className="diary-error">{error}</p>}
+    <footer className="diary-footer">
+     <p>제목 없이도 괜찮아요.</p>
+     <div className="diary-actions"><button type="button" className="diary-cancel" onClick={onClose}>취소</button><button type="submit" className="diary-save" disabled={!content.trim() || !date}>{busy ? '저장 중…' : '일기 저장'}<span aria-hidden="true">↗</span></button></div>
+    </footer>
+   </fieldset>
+  </form>
+ </section>
 }

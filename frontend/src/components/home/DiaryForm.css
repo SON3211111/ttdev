@@ -1,0 +1,38 @@
+/* 일기 전용 작성 카드입니다. 다른 상세/수정 폼에는 영향을 주지 않습니다. */
+.diary-composer { border:1px solid #dce2d3; border-radius:16px; background:#fffefa; padding:28px 30px 24px; box-shadow:0 5px 24px #35403405; }
+.diary-header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-bottom:23px; border-bottom:1px solid #e9ece2; }
+.diary-intro { display:flex; align-items:center; gap:13px; }
+.diary-mark { display:grid; place-items:center; width:43px; height:43px; border-radius:13px; background:#edf1e6; color:#637c62; }
+.diary-eyebrow { color:#7c8873; font-size:10px; letter-spacing:.3px; margin-bottom:2px; }
+.diary-composer h2 { font-size:19px; font-weight:600; letter-spacing:-.6px; }
+.diary-close { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; font-size:24px; line-height:1; color:#7d8874; }
+.diary-close:hover:enabled { background:#f0f2e9; }
+.diary-composer fieldset { border:0; padding:0; margin:0; min-width:0; }
+.diary-composer label { font-size:11px; font-weight:500; color:#74816a; }
+.diary-date-row { display:flex; align-items:center; gap:14px; margin:21px 0 26px; }
+.diary-date-row input { min-width:0; max-width:175px; padding:8px 11px; border:1px solid #e0e5d7; border-radius:7px; background:#f3f5ed; color:#52644a; font:inherit; font-size:12px; }
+.diary-title-field label, .diary-content-field label { display:block; margin-bottom:9px; }
+.diary-title-field input { display:block; width:100%; min-width:0; border:0; border-bottom:1px solid #e8ebdf; border-radius:0; background:transparent; padding:4px 0 17px; color:#354034; font:inherit; font-size:21px; font-weight:500; letter-spacing:-.6px; }
+.diary-composer input::placeholder, .diary-composer textarea::placeholder { color:#9aa28f; font-weight:400; }
+.diary-content-field { margin-top:23px; }
+.diary-content-field textarea { display:block; width:100%; min-width:0; min-height:280px; padding:8px 0; resize:vertical; border:0; border-radius:0; background:transparent; color:#45523f; font:inherit; font-size:14px; line-height:2.15; }
+.diary-writing-meta { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-top:14px; color:#8a947f; font-size:10px; }
+.diary-writing-meta > :last-child { margin-left:auto; font-variant-numeric:tabular-nums; }
+.diary-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:22px; padding-top:20px; border-top:1px solid #e9ece2; }
+.diary-footer > p { color:#8b9581; font-size:11px; }
+.diary-actions { display:flex; align-items:center; gap:9px; }
+.diary-actions button { min-height:40px; padding:10px 17px; border-radius:8px; font-size:12px; }
+.diary-cancel { color:#74816a; }
+.diary-cancel:hover:enabled { background:#f1f3eb; }
+.diary-actions .diary-save { display:flex; align-items:center; gap:15px; background:#637c62; color:#fff; }
+.diary-actions .diary-save:hover:enabled { background:#50694f; }
+.diary-save span { font-size:16px; line-height:1; }
+.diary-error { margin-top:16px; padding:11px 13px; border-radius:7px; background:#fbefea; color:#974f40; font-size:12px; overflow-wrap:anywhere; }
+@media (max-width:760px) {
+ .diary-composer { padding:22px 20px 20px; border-radius:13px; }
+ .diary-title-field input { font-size:18px; }
+ .diary-content-field textarea { min-height:250px; font-size:13px; }
+ .diary-writing-meta > :first-child { display:none; }
+ .diary-footer > p { display:none; }
+ .diary-actions { width:100%; justify-content:flex-end; }
+}

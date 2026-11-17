@@ -88,7 +88,7 @@ export default function HomePage({ onOpenAiTest }: Props) {
         <p className="notice" role="status">{notice}</p>
         <div className="grid">
           <div className="home-primary">
-            <QuickMemo onSave={addMemo} onWriteDiary={() => setWritingDiary(true)} />
+            <div hidden={writingDiary}><QuickMemo onSave={addMemo} onWriteDiary={() => setWritingDiary(true)} /></div>
             {writingDiary && <DiaryForm onClose={() => setWritingDiary(false)} onSaved={date => {
               setWritingDiary(false); setSavedDate({ date }); setFilter('전체'); setPage(0); refresh('일기를 저장했습니다. 목록과 캘린더에 반영합니다.')
             }} />}
