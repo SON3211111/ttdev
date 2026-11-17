@@ -23,14 +23,14 @@
 | Method | URL | 동작 |
 |---|---|---|
 | POST | /api/schedules | 등록, PLANNED 고정, 201 + Location + 상세 |
-| GET | /api/schedules | 기간/상태별 페이지 목록 |
+| GET | /api/schedules | 오늘 포함 7일의 예정 일정 목록 |
 | GET | /api/schedules/{id} | 상세 |
 | PUT | /api/schedules/{id} | 입력 필드와 상태 전체 수정 |
 | DELETE | /api/schedules/{id} | 물리 삭제, 204 |
 
 등록 필수: title(최대 100자), scheduleDate(1000-01-01~9999-12-31, 과거/미래 허용). 선택: scheduleTime(HH:mm, 초 단위 거부), location(최대 200자), description(최대 2,000자). 시간 null/빈 문자열은 미정이며 선택 문자열 공백은 null로 정리한다. 수정 시 status(PLANNED/COMPLETED/CANCELLED)를 반드시 보낸다. 상태를 자동 변경하지 않는다.
 
-목록 조건: start/end 양끝 포함, 둘 다 생략하면 서울 오늘~6일 후. 한쪽만 지정하거나 역전하면 400이다. status 생략은 전체, 홈은 PLANNED 지정. page 기본 0, size 기본 20(1~100). 정렬은 날짜 오름차순 → 시간 있는 일정 먼저/시간 오름차순 → ID 오름차순이다.
+목록은 서울 오늘~6일 후 PLANNED로 고정한다. page 기본 0, size 기본 20(1~100). start/end/status 조건은 제거했으며 빈 값도 400이다. 정렬은 날짜 오름차순 → 시간 있는 일정 먼저/시간 오름차순 → ID 오름차순이다.
 
 상세와 목록 항목은 id(문자열), title, scheduleDate, scheduleTime(HH:mm 또는 null), location, description, status, createdAt, updatedAt이다. 페이지 응답은 기록과 같다. 작성/수정 시각은 UTC이며 일정은 DB와 같은 마이크로초 정밀도다.
 
@@ -47,6 +47,8 @@
 | 500 | INTERNAL_ERROR | 예상하지 못한 서버 오류 |
 
 미지원 JSON 필드는 거부한다. 날짜는 YYYY-MM-DD, 시각은 UTC ISO 8601 Z다. 수정 충돌 제어는 없으며 여러 탭에서는 마지막 저장이 반영된다. 원문 저장/조회는 AI를 호출하지 않는다.
+
+캘린더에서 미래 일정을 등록·관리하는 연결은 5단계 계획이다. 미래 날짜의 일정 생성/수정은 현재 CRUD API가 지원한다. 홈 목록 범위 밖 또는 완료·취소 일정의 날짜별 접근을 위한 캘린더 조회는 별도 구현하며, 제거한 홈 관리용 파라미터는 복원하지 않는다.
 
 ## 아직 미구현인 서비스 API
 

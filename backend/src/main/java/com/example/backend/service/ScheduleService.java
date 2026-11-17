@@ -33,16 +33,13 @@ public class ScheduleService {
     }
     @Transactional
     public void delete(long id) { repository.delete(find(id)); }
-    public ScheduleDtos.Listing list(LocalDate start, LocalDate end, String status, int page, int size) {
-        // 기간 생략은 서울 오늘~6일 후입니다. 한쪽만 있으면 모호하므로 거부합니다.
-        if ((start == null) != (end == null)) throw RecordException.invalid();
-        if (start == null) { start = LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul"))); end = start.plusDays(6); }
-        validDate(start); validDate(end);
-        if (start.isAfter(end)) throw RecordException.invalid();
-        if (status != null) validateStatus(status);
+    public ScheduleDtos.Listing list(int page, int size) {
+        // 홈의 다가오는 예정 일정만 조회합니다. 외부 기간·상태 조건은 받지 않습니다.
+        LocalDate start = LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")));
+        LocalDate end = start.plusDays(6);
         if (page < 0 || size < 1 || size > 100 || (long)page * size > Integer.MAX_VALUE)
             throw RecordException.validation("page", "페이지는 0 이상, 크기는 1~100으로 지정해주세요.");
-        var result = repository.list(start, end, status, PageRequest.of(page, size));
+        var result = repository.upcoming(start, end, PageRequest.of(page, size));
         return new ScheduleDtos.Listing(result.getContent().stream().map(ScheduleDtos.Detail::from).toList(), page, size, result.getTotalElements(), result.getTotalPages());
     }
     // MySQL DATETIME(6)의 마이크로초 정밀도와 등록/수정 응답을 일치시킵니다.

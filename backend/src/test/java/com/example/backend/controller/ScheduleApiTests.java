@@ -50,7 +50,7 @@ class ScheduleApiTests {
             assertEquals("COMPLETED", detail.get("status").asText());
             assertTrue(detail.get("location").isNull()); assertTrue(detail.get("description").isNull());
             body.put("status", "CANCELLED"); assertEquals(200, request("PUT", path, body).statusCode());
-            assertFalse(request("GET", "?start=2020-02-29&end=2020-02-29", null).body().contains("수정"));
+            assertFalse(request("GET", "", null).body().contains("수정"));
             assertEquals(204, request("DELETE", path, null).statusCode());
             assertEquals(404, request("GET", path, null).statusCode());
             assertEquals(404, request("PUT", path, body).statusCode());
@@ -72,15 +72,15 @@ class ScheduleApiTests {
             String cancelled = create(input(marker + "-cancelled", today.toString(), null)); paths.add(cancelled);
             var body = input(marker + "-cancelled", today.toString(), null); body.put("status", "CANCELLED");
             assertEquals(200, request("PUT", cancelled, body).statusCode());
-            var response = request("GET", "?status=PLANNED&size=100", null);
+            var response = request("GET", "?size=100", null);
             assertEquals(200, response.statusCode(), response.body());
             var list = json.readTree(response.body());
             var names = new ArrayList<String>(); list.get("items").forEach(item -> names.add(item.get("title").asText()));
             assertEquals(List.of(marker + "-early", marker + "-tie", marker + "-late", marker + "-unknown", marker + "-end"), names);
-            var paged = json.readTree(request("GET", "?status=PLANNED&size=2&page=1", null).body());
+            var paged = json.readTree(request("GET", "?size=2&page=1", null).body());
             assertEquals(5, paged.get("totalElements").asInt()); assertEquals(3, paged.get("totalPages").asInt());
             assertEquals(marker + "-late", paged.get("items").get(0).get("title").asText());
-            assertTrue(request("GET", "?start=" + today + "&end=" + today + "&status=CANCELLED", null).body().contains(marker + "-cancelled"));
+            assertEquals("CANCELLED", json.readTree(request("GET", cancelled, null).body()).get("status").asText());
         } finally { for (String path : paths) request("DELETE", path, null); }
     }
     @Test void rejectsBadInputsAndQueryConditions() throws Exception {
@@ -95,7 +95,7 @@ class ScheduleApiTests {
             var response = request("POST", "", body); assertEquals(400, response.statusCode(), response.body());
             assertTrue(json.readTree(response.body()).has("fieldErrors"));
         }
-        for (String query : List.of("?start=2020-01-01", "?end=2020-01-01", "?start=2020-03-01&end=2020-02-29", "?start=bad&end=2020-01-01", "?status=OTHER", "?page=-1", "?size=101", "?page=2147483647&size=100", "?page=0&page=1", "?keyword=x"))
+        for (String query : List.of("?start=2020-01-01", "?end=2020-01-01", "?start=2020-03-01&end=2020-02-29", "?start=bad&end=2020-01-01", "?status=OTHER", "?status=PLANNED", "?status=", "?start=2020-01-01&end=2020-01-07", "?page=-1", "?size=101", "?page=2147483647&size=100", "?page=0&page=1", "?keyword=x"))
             assertEquals(400, request("GET", query, null).statusCode(), query);
         assertEquals(400, request("GET", "/bad", null).statusCode());
         String path = create(input("valid", "2020-01-01", ""));

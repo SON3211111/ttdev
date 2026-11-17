@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import java.net.URI;
-import java.time.LocalDate;
 import java.util.Set;
 
 @RestController
@@ -21,14 +20,12 @@ public class ScheduleController {
     }
     @GetMapping
     public ScheduleDtos.Listing list(@RequestParam MultiValueMap<String, String> params) {
-        if (params.entrySet().stream().anyMatch(e -> !Set.of("start", "end", "status", "page", "size").contains(e.getKey()) || e.getValue().size() != 1))
+        if (params.entrySet().stream().anyMatch(e -> !Set.of("page", "size").contains(e.getKey()) || e.getValue().size() != 1))
             throw RecordException.invalid();
         try {
-            return service.list(params.getFirst("start") == null ? null : LocalDate.parse(params.getFirst("start")),
-                params.getFirst("end") == null ? null : LocalDate.parse(params.getFirst("end")), params.getFirst("status"),
-                Integer.parseInt(params.getFirst("page") == null ? "0" : params.getFirst("page")),
+            return service.list(Integer.parseInt(params.getFirst("page") == null ? "0" : params.getFirst("page")),
                 Integer.parseInt(params.getFirst("size") == null ? "20" : params.getFirst("size")));
-        } catch (NumberFormatException | java.time.format.DateTimeParseException e) { throw RecordException.invalid(); }
+        } catch (NumberFormatException e) { throw RecordException.invalid(); }
     }
     @GetMapping("/{id}") public ScheduleDtos.Detail detail(@PathVariable String id) { return service.detail(id(id)); }
     @PutMapping("/{id}") public ScheduleDtos.Detail update(@PathVariable String id, @RequestBody ScheduleDtos.Update request) { return service.update(id(id), request); }

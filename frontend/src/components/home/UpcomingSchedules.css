@@ -98,8 +98,7 @@
 .schedule .event-copy { min-width:0; display:flex; flex-direction:column; gap:5px; overflow-wrap:anywhere; }
 .schedule .event-copy strong { font-size:12px; }
 .schedule .event-copy > span { font-size:11px; color:#66755c; }
-.schedule-range, .schedule-editor fieldset { display:flex; flex-direction:column; gap:10px; border:0; padding:0; min-width:0; }
-.schedule-range { margin-top:16px; }
+.schedule-editor fieldset { display:flex; flex-direction:column; gap:10px; border:0; padding:0; min-width:0; }
 .schedule label { display:flex; flex-direction:column; gap:5px; font-size:12px; min-width:0; }
 .schedule input, .schedule textarea, .schedule select { box-sizing:border-box; width:100%; min-width:0; padding:8px; border:1px solid #ddd; border-radius:6px; background:white; font:inherit; }
 .schedule textarea { min-height:100px; resize:vertical; }

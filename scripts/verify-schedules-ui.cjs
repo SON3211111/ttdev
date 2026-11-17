@@ -22,6 +22,9 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
  }
  try {
   await page.goto('http://localhost:5173');
+  for (const query of ['?status=PLANNED','?start=2020-01-01&end=2020-01-07']) {
+    assert.equal((await page.request.get('http://localhost:5173/api/schedules' + query)).status(),400);
+  }
   await section.getByRole('button',{name:'새로운 일정 추가',exact:false}).click();
   assert.equal(await editor.getByRole('button',{name:'일정 저장',exact:true}).isDisabled(),true);
   await editor.getByLabel('일정명',{exact:true}).fill(marker);
@@ -53,18 +56,16 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   await editor.getByLabel('일정 상태',{exact:true}).selectOption('COMPLETED');
   await save();
   await page.waitForFunction(m => ![...document.querySelectorAll('#schedules button.event')].some(e => e.textContent.includes(m)),marker);
-  await section.getByRole('button',{name:'일정 관리',exact:true}).click();
-  await open(marker);
-  assert.equal(await editor.getByLabel('시간 (선택)',{exact:true}).inputValue(),'00:05');
-  assert.equal(await editor.getByLabel('일정 상태',{exact:true}).inputValue(),'COMPLETED');
-  await editor.getByLabel('일정 상태',{exact:true}).selectOption('CANCELLED'); await save();
-  await open(marker);
-  await editor.getByLabel('일정 상태',{exact:true}).selectOption('PLANNED');
-  await editor.getByLabel('일정 날짜',{exact:true}).fill('2020-02-29'); await save();
-  await section.getByLabel('시작 날짜',{exact:true}).fill('2020-02-29');
-  await section.getByLabel('종료 날짜',{exact:true}).fill('2020-02-29');
-  await section.getByRole('button',{name:'조회',exact:true}).click();
-  await open(marker);
+  const id = [...ids][0];
+  const completed = await (await page.request.get('http://localhost:5173/api/schedules/' + id)).json();
+  assert.equal(completed.status,'COMPLETED');
+  assert.equal(completed.scheduleTime,'00:05');
+  // 완료/취소 일정의 일반 관리 UI는 제거했습니다. 상세 API와 상태 변경 자체는 유지합니다.
+  const input = {title:completed.title,scheduleDate:completed.scheduleDate,scheduleTime:completed.scheduleTime,location:completed.location,description:completed.description};
+  assert.equal((await page.request.put('http://localhost:5173/api/schedules/' + id,{data:{...input,status:'CANCELLED'}})).status(),200);
+  assert.equal((await page.request.put('http://localhost:5173/api/schedules/' + id,{data:{...input,status:'PLANNED'}})).status(),200);
+  await page.reload(); await open(marker);
+  assert.equal(await section.getByRole('button',{name:'일정 관리',exact:true}).count(),0);
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   page.once('dialog', d => d.dismiss()); await editor.getByRole('button',{name:'영구 삭제',exact:true}).click();
@@ -82,7 +83,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   assert.equal((await deleted).status(),204); await editor.waitFor({state:'detached'});
   for(const id of ids) assert.equal((await page.request.get('http://localhost:5173/api/schedules/' + id)).status(),404);
   assert.deepEqual(errors,[]);
-  console.log('PASS: 일정 시간 미정 생성·실패 입력 보존·조회 실패 분리·새로고침·시간/상태/날짜 수정·과거 일정 관리·삭제 취소/실패/성공·390px');
+  console.log('PASS: 일정 시간 미정 생성·실패 입력 보존·조회 실패 분리·새로고침·시간/상태 수정·일정 관리 UI 없음·삭제 취소/실패/성공·390px');
  } finally {
   for(const id of ids) await page.request.delete('http://localhost:5173/api/schedules/' + id);
   await pause(50); await browser.close();

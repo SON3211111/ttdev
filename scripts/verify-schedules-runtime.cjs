@@ -29,10 +29,10 @@ async function wait(check) { for(let n=0;n<90;n++){try{if(await check())return;}
   const completed=await create('-completed',0,null);
   const update=await request('PUT','/'+completed.id,{title:completed.title,scheduleDate:completed.scheduleDate,status:'COMPLETED'});
   assert.equal(update.status,200);
-  const listed=await (await request('GET','?status=PLANNED&size=100')).json();
+  const listed=await (await request('GET','?size=100')).json();
   assert.deepEqual(listed.items.filter(v=>v.title.startsWith(marker)).map(v=>v.id),[early.id,late.id,unknown.id,end.id]);
   assert.equal((await (await request('GET','/'+late.id)).json()).scheduleTime,'23:59');
-  for(const query of ['?keyword=x','?from='+today,'?start='+today]) assert.equal((await request('GET',query)).status,400);
+  for(const query of ['?keyword=x','?from='+today,'?start='+today,'?end='+today,'?status=PLANNED']) assert.equal((await request('GET',query)).status,400);
   console.log('PASS: 실제 MySQL 7일 경계·시간 미정 정렬·00:00/23:59·상태 제외·AI 중단 중 저장/조회');
   docker(['restart','mysql']);
   await wait(()=>inspect('dev-mysql','{{.State.Health.Status}}')==='healthy');

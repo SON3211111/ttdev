@@ -205,8 +205,14 @@ fieldErrors는 필드별 오류가 없으면 빈 배열. 응답/로그에 입력
 - POST /api/schedules: title·scheduleDate 필수, scheduleTime(HH:mm)·location·description 선택. 최초 PLANNED 고정, 201 + Location + 상세 응답. 날짜는 1000-01-01~9999-12-31, 과거/미래 모두 허용한다.
 - GET /api/schedules/{id}: 상세, PUT: 모든 입력 필드와 status 전체 교체, DELETE: 확인 후 물리 삭제(204). 없는 ID는 404 SCHEDULE_NOT_FOUND. JSON 미지원 필드는 400이다.
 - PUT status는 PLANNED/COMPLETED/CANCELLED 중 필수. 자동 완료는 없다. 시간 null 또는 빈 문자열은 시간 미정, 초 단위와 잘못된 HH:mm은 400이다.
-- GET /api/schedules: start/end 양끝 포함, 둘 다 생략하면 서울 오늘~6일 후. 한쪽만 지정·역전 범위는 400. status 생략은 전체, 지정하면 해당 상태만. 홈은 PLANNED로 호출한다.
+- GET /api/schedules: 사용자 요청으로 기간/상태별 관리 조회를 제거했다. 서울 오늘~6일 후 PLANNED만 반환하며 start/end/status 파라미터는 400이다.
 - page 기본 0, size 기본 20(1~100), 고정 정렬은 날짜 오름차순 → 시간 있는 일정 먼저/시간 오름차순 → ID 오름차순. 목록 응답은 items/page/size/totalElements/totalPages다.
 - 상세 필드: id(문자열), title, scheduleDate, scheduleTime(HH:mm 또는 null), location, description, status, createdAt/updatedAt(UTC). 길이와 빈 문자열 정리는 앞의 일정 데이터 설계를 따른다. 오류는 기록 API와 동일한 code/message/fieldErrors 계약이다.
-- 홈 예정 목록과 별도의 기간별 관리 목록을 제공한다. 완료·취소/7일 이후/과거 일정도 관리 목록에서 조회·수정·삭제한다. 저장 성공과 목록 재조회 실패를 분리하며 POST를 자동 재시도하지 않는다.
+- 홈의 다가오는 예정 목록만 제공한다. 기간별 관리 UI/API는 사용자 요청으로 제거했다. 저장 성공과 목록 실패는 분리하며 POST를 자동 재시도하지 않는다.
 - 통합 캘린더 일정 표시·선택 날짜로 작성은 5단계, AI 약속 준비는 8단계다. 여러 탭 동시 수정은 마지막 저장이 반영된다.
+
+## 8. 캘린더 일정 관리 방향 — 2026-11-17 합의
+
+홈은 오늘 포함 7일의 예정 일정 확인용이다. 별도의 기간·상태별 일정 관리 화면과 API는 복원하지 않는다. 5단계 캘린더에서 미래 날짜 선택 → 일정 등록 → 날짜별 목록/상세 → 수정·삭제·상태 변경을 연결한다. 홈에 나오지 않는 먼 미래/과거 일정과 완료·취소 일정도 캘린더에서 접근한다.
+
+미래 일정 저장은 현재 schedules DB/CRUD API에서 지원한다. 캘린더용 월/날짜 통합 조회는 아직 미구현이며 5단계에서 계약을 확정한다. 현재 GET /api/schedules는 홈 전용 7일 예정 목록이고 start/end/status는 계속 400이다. 기록의 미래 날짜 거부 정책은 유지한다. 수정·삭제·날짜·상태 변경 후 캘린더와 홈 예정 목록을 갱신한다.

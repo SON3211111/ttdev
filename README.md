@@ -2,7 +2,7 @@
 
 일기·빠른 메모·일정을 관리하는 로컬 단일 사용자 기억 아카이브입니다.
 
-2026-11-17 기준 **4단계 일정 관리까지 구현·검증 완료**했습니다. 메모/일기 CRUD, 통합 기록 목록, 기록 캘린더, 일정 CRUD·상태 변경·다가오는 일정과 기간별 관리가 동작합니다. 일반 기록 검색 UI/API는 사용자 요청으로 제거했습니다. 통합 캘린더의 일정 표시, AI 기억 검색·인덱스 처리·약속 준비는 후속 작업입니다.
+2026-11-17 기준 **4단계 일정 관리까지 구현·검증 완료**했습니다. 메모/일기 CRUD, 통합 기록 목록, 기록 캘린더, 일정 CRUD·상태 변경·다가오는 일정이 동작합니다. 일반 기록 검색 UI/API 및 일정 기간·상태별 관리 UI/API는 사용자 요청으로 제거했습니다. 통합 캘린더의 일정 표시, AI 기억 검색·인덱스 처리·약속 준비는 후속 작업입니다.
 
 ## 실행
 
@@ -51,11 +51,13 @@ Gradle 사용자 캐시에 쓰기 권한이 필요합니다. 백엔드 테스트
 
 ~~~powershell
 node scripts/verify-query-ui.cjs
+node scripts/verify-stage3-ui.cjs
+node scripts/verify-schedule-editor-ui.cjs
 node scripts/verify-schedules-ui.cjs
 node scripts/verify-schedules-runtime.cjs
 ~~~
 
-query-ui는 기록 응답을 모의 처리합니다. schedules-ui는 실제 DB에 검증 일정을 만들고 삭제합니다. schedules-runtime은 AI를 잠시 중단하고 MySQL/백엔드를 재시작하며 검증 일정을 정리하고 AI의 기존 실행 상태를 복구합니다. 마지막 스크립트에는 Docker 접근 권한이 필요합니다.
+query-ui와 schedule-editor-ui는 모의 응답으로 조회/편집 상태를 검사합니다. stage3-ui는 실제 일기 CRUD·지연 응답·페이지 탐색을 확인하며 생성한 일기를 정리합니다. schedules-ui는 실제 DB에 검증 일정을 만들고 삭제합니다. schedules-runtime은 AI를 잠시 중단하고 MySQL/백엔드를 재시작하며 검증 일정을 정리하고 AI의 기존 실행 상태를 복구합니다. 마지막 스크립트에는 Docker 접근 권한이 필요합니다.
 
 ## AI 환경
 
@@ -75,4 +77,6 @@ docker compose exec ollama ollama pull bge-m3
 - [API](docs/API.md) / [상세 데이터·오류 규칙](docs/MINIMUM_DESIGN.md)
 - [메모 검증](docs/STAGE2_CHECK.md) / [일정 검증](docs/STAGE4_CHECK.md)
 
-다음 작업은 5단계 통합 캘린더입니다.
+현재 일정은 DB에 저장되어도 캘린더에 표시되지 않습니다. 오늘 포함 7일 밖의 일정과 완료·취소 일정은 아직 화면에서 다시 열 수 없습니다.
+
+다음 작업은 5단계 통합 캘린더입니다. 홈은 다가오는 일정 확인용으로 두고, 캘린더에서 미래 날짜를 골라 일정을 미리 등록·조회·수정·삭제·상태 변경하도록 연결할 예정입니다. 미래 일정 저장 API는 이미 지원하지만 캘린더 연결은 아직 미구현입니다.
