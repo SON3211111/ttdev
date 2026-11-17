@@ -1,3 +1,5 @@
+# pip install -r requirements.txt로 설치할 Python 라이브러리 목록입니다.
+# fastapi는 HTTP API, uvicorn은 서버 실행, httpx는 Ollama에 HTTP 요청을 보내는 데 사용합니다.
 fastapi
 uvicorn[standard]
 httpx

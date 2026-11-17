@@ -1,0 +1,147 @@
+/* 최근 기록의 필터/목록/페이지 버튼 모양입니다. .records 안에서만 적용합니다.
+   긴 제목은 overflow: hidden + white-space: nowrap + text-overflow: ellipsis로 한 줄 말줄임표를 표시합니다. */
+.records .section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.records h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -.5px;
+}
+
+.records .muted {
+  font-size: 11px;
+  color: #8b8f82;
+}
+
+.records {
+  scroll-margin-top: 24px;
+}
+
+.records .count {
+  font-size: 11px;
+  color: #8c957e;
+  padding-left: 7px;
+  font-weight: 400;
+}
+
+.records .tabs {
+  display: flex;
+  gap: 6px;
+  margin: 17px 0 7px;
+}
+
+.records .tabs button {
+  font-size: 11px;
+  color: #7c8670;
+  padding: 4px 12px;
+  border-radius: 5px;
+}
+
+.records .tabs .selected {
+  background: #e9ede1;
+  color: #617356;
+}
+
+.records .record {
+  border-bottom: 1px solid #e6e7dd;
+}
+
+.records .record-select {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 15px;
+  padding: 20px 2px;
+  width: 100%;
+  cursor: pointer;
+  list-style: none;
+}
+
+
+
+.records .record-select:hover {
+  background: #f0f1e8;
+}
+
+.records .record-icon {
+  height: 40px;
+  width: 37px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 23px;
+  border-radius: 8px;
+  background: #eaf0e3;
+  color: #879a76;
+}
+
+.records .record-icon.diary {
+  background: #f0eade;
+  color: #b5a17d;
+}
+
+.records .record-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.records .meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 9px;
+  color: #858e78;
+}
+
+.records .meta>span {
+  color: #7e8b70;
+}
+
+.records .record-copy h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records .record-copy>p {
+  font-size: 11px;
+  color: #818a77;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records .arrow {
+  color: #9aa18f;
+  font-size: 18px;
+}
+
+.records .record-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 0 15px 20px 54px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.records .empty-state {
+  padding: 28px 10px;
+  color: #7c8670;
+  font-size: 12px;
+}
+
+
+
+.records .reload { margin-left: auto; }
+.records .record-select { border: 0; background: transparent; }
+.records .list-error { color: #9a463c; padding: 18px 0; font-size: 12px; }
+.records .list-error button { text-decoration: underline; padding: 6px 0; }
+.records .pagination { display: flex; justify-content: center; gap: 16px; padding: 20px 0; font-size: 12px; }

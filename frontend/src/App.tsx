@@ -1,175 +1,21 @@
-
+// 어떤 화면을 보여줄지 고르는 파일입니다. page가 home이면 홈, ai-test면 AI 테스트를 보여줍니다.
+// onOpenAiTest는 HomePage에 전달하는 함수입니다. 홈의 버튼이 이 함수를 부르면 page가 바뀝니다.
 import { useState } from 'react'
+import AiTestPage from './pages/AiTestPage'
+import HomePage from './pages/HomePage'
+import './App.css'
 
-type AiResponse = {
-  model: string
-  response: string
-}
+export default function App() {
+  const [page, setPage] = useState<'home' | 'ai-test'>('home')
 
-function App() {
-  const [prompt, setPrompt] = useState('')
-  const [answer, setAnswer] = useState('')
-  const [model, setModel] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleGenerate = async () => {
-    if (!prompt.trim() || loading) return
-
-    setLoading(true)
-    setAnswer('')
-    setModel('')
-    setError('')
-
-    try {
-      const response = await fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-        }),
-      })
-
-      if (!response.ok) {
-        let message = 'AI 요청 중 오류가 발생했습니다.'
-
-        try {
-          const errorData = await response.json()
-
-          if (typeof errorData.error === 'string') {
-            message = errorData.error
-          }
-        } catch {
-          // JSON 오류 응답이 없는 경우
-        }
-
-        if (response.status === 400) {
-          message = '질문을 올바르게 입력해주세요.'
-        } else if (response.status === 502) {
-          message = 'AI 서버 요청 처리에 실패했습니다.'
-        } else if (response.status === 503) {
-          message = 'AI 서버에 연결할 수 없습니다.'
-        } else if (response.status === 504) {
-          message = 'AI 응답 시간이 초과되었습니다.'
-        }
-
-        throw new Error(message)
-      }
-
-      const data: AiResponse = await response.json()
-
-      setAnswer(data.response)
-      setModel(data.model)
-
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : '알 수 없는 오류가 발생했습니다.'
-      )
-    } finally {
-      setLoading(false)
-    }
+  if (page === 'ai-test') {
+    return (
+      <>
+        <button className="back" onClick={() => setPage('home')}>← 홈으로 돌아가기</button>
+        <AiTestPage />
+      </>
+    )
   }
 
-  return (
-    <main
-      style={{
-        maxWidth: '700px',
-        margin: '60px auto',
-        padding: '24px',
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <h1>AI 테스트</h1>
-
-      <p>
-        React → Spring Boot → FastAPI → Ollama
-      </p>
-
-      <div style={{ marginTop: '30px' }}>
-
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="AI에게 질문을 입력하세요..."
-          rows={5}
-          style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: '12px',
-            fontSize: '16px',
-            borderRadius: '8px',
-            border: '1px solid #ccc',
-          }}
-        />
-
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={loading || !prompt.trim()}
-          style={{
-            marginTop: '12px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: loading ? 'wait' : 'pointer',
-            borderRadius: '8px',
-          }}
-        >
-          {loading ? '답변 생성 중...' : '질문 전송'}
-        </button>
-      </div>
-
-      {loading && (
-        <p style={{ marginTop: '20px' }}>
-          AI가 답변을 생성하고 있습니다...
-        </p>
-      )}
-
-      {error && (
-        <div
-          role="alert"
-          style={{
-            marginTop: '20px',
-            padding: '14px',
-            color: '#b91c1c',
-            backgroundColor: '#fee2e2',
-            borderRadius: '8px',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {answer && (
-        <section
-          style={{
-            marginTop: '30px',
-            padding: '20px',
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          <h2>AI Response</h2>
-
-          <p>{answer}</p>
-
-          <p
-            style={{
-              marginTop: '20px',
-              fontSize: '13px',
-              color: '#888',
-            }}
-          >
-            Model: {model}
-          </p>
-        </section>
-      )}
-    </main>
-  )
+  return <HomePage onOpenAiTest={() => setPage('ai-test')} />
 }
-
-export default App

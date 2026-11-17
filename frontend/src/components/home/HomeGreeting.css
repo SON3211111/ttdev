@@ -1,0 +1,65 @@
+/* 홈 위쪽 인사말과 오늘 날짜의 모양입니다. .greeting을 앞에 붙인 선택자는 이 영역에서만 적용됩니다. */
+.greeting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 27px;
+}
+
+.greeting .eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #7d8d74;
+  font-weight: 600;
+}
+
+.greeting h1 {
+  font-size: 29px;
+  font-weight: 500;
+  letter-spacing: -1.4px;
+  margin: 10px 0;
+}
+
+.greeting .subtitle {
+  color: #84887e;
+  font-size: 13px;
+}
+
+.greeting .today {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 12px;
+  color: #8b8e83;
+}
+
+.greeting .today strong {
+  font-weight: 500;
+  color: #606b5d;
+  font-size: 13px;
+}
+
+/* 아래 화면 너비 조건에 맞을 때 인사말 크기와 날짜 배치를 작은 화면에 맞춥니다. */
+@media (max-width: 760px) {
+  .greeting {
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .greeting .today strong {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .greeting h1 {
+    font-size: 23px;
+    max-width: 250px;
+    line-height: 1.5;
+  }
+  .greeting .eyebrow {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+  .greeting .subtitle {
+    font-size: 11px;
+  }
+}

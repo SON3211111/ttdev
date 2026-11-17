@@ -1,0 +1,23 @@
+/* 달력 카드 모양입니다. 날짜는 grid의 repeat(7, ...)로 일~토 7칸을 같은 폭으로 나눕니다.
+   [aria-current="date"]는 오늘의 테두리, .chosen은 사용자가 선택한 날짜의 배경입니다.
+   아래 480px 미디어 쿼리는 휴대폰에서 날짜 칸 높이와 여백을 줄입니다. */
+.record-calendar { margin-top: 30px; padding: 22px; border: 1px solid #e0e5d8; border-radius: 12px; background: #f9faf4; min-width: 0; scroll-margin-top: 24px; }
+.record-calendar .calendar-heading { display: flex; align-items: center; justify-content: space-between; }
+.record-calendar h2 { font-size: 16px; font-weight: 600; }
+.record-calendar .calendar-description, .record-calendar p { font-size: 12px; color: #75806c; margin-top: 8px; }
+.record-calendar .calendar-heading button { font-size: 12px; padding: 5px 10px; background: #e9ede1; border-radius: 5px; }
+.record-calendar .calendar-month { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 14px; font-size: 14px; }
+.record-calendar .calendar-month button { padding: 4px 14px; font-size: 23px; }
+.record-calendar .calendar-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.record-calendar .weekday { text-align: center; font-size: 11px; color: #7a856f; padding: 8px 0; }
+.record-calendar .calendar-days button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 57px; border-radius: 7px; font-size: 13px; border: 1px solid transparent; }
+.record-calendar .calendar-days button:hover { background: #edf0e5; }
+.record-calendar .calendar-days button[aria-current="date"] { border-color: #91a181; }
+.record-calendar .calendar-days button.chosen { background: #dfe8d5; color: #405737; }
+.record-calendar small { font-size: 10px; color: #627850; margin-top: 3px; }
+.record-calendar .calendar-records { border-top: 1px solid #e0e5d8; padding-top: 16px; margin-top: 16px; }
+.record-calendar h3 { font-size: 12px; font-weight: 500; }
+.record-calendar .calendar-records button { display: flex; width: 100%; gap: 10px; padding: 14px 0; text-align: left; border-bottom: 1px solid #e8ebdf; font-size: 12px; }
+.record-calendar .calendar-records button span:first-child { color: #748866; flex-shrink: 0; }
+.record-calendar .calendar-records button span:nth-child(2) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+@media (max-width: 480px) { .record-calendar { padding: 14px; } .record-calendar .calendar-days { gap: 2px; } .record-calendar .calendar-days button { min-height: 48px; } }

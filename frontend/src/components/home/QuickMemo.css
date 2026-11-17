@@ -1,0 +1,127 @@
+/* 빠른 메모 카드의 입력창/날짜/저장 버튼 모양입니다.
+   .memo textarea처럼 앞에 카드 클래스를 붙여 다른 화면의 textarea에는 영향을 주지 않습니다. */
+.memo.card {
+  background: #fffefa;
+  border: 1px solid #e3e5d9;
+  border-radius: 13px;
+  padding: 24px;
+}
+
+.memo .section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.memo h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -.5px;
+}
+
+.memo .swirl {
+  color: #718667;
+  font-size: 26px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* margin-top은 입력창 바깥 위쪽 여백입니다. 안내 글과 입력창이 붙지 않게 16px을 띄웁니다. */
+.memo textarea {
+  display: block;
+  margin-top: 16px;
+  width: 100%;
+  height: 148px;
+  resize: vertical;
+  min-height: 110px;
+  background: transparent;
+  border: 0;
+  padding: 23px 0;
+  color: #45523f;
+  line-height: 1.9;
+  font-size: 13px;
+}
+
+.memo textarea::placeholder {
+  color: #959b8d;
+}
+
+.memo-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #eeeee5;
+  padding-top: 17px;
+  gap: 12px;
+}
+
+.memo-bottom label {
+  font-size: 10px;
+  color: #7b8270;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memo-bottom input {
+  border: 0;
+  background: #f3f4ec;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: #697360;
+  max-width: 132px;
+}
+
+.memo .primary {
+  background: #637c62;
+  color: white;
+  padding: 10px 17px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.memo .primary:hover:enabled {
+  background: #4d654c;
+}
+
+.memo .description {
+  font-size: 11px;
+  color: #858d78;
+  margin-top: 5px;
+}
+
+/* 아래 @media 조건의 화면 너비에서만 적용해 작은 화면의 입력창/버튼 간격을 줄입니다. */
+@media (max-width: 760px) {
+  .memo.card {
+    padding: 20px;
+  }
+  .memo-bottom {
+    flex-wrap: wrap;
+  }
+  .memo .primary {
+    font-size: 11px;
+  }
+}
+
+.memo .diary-button {
+  padding: 7px 12px;
+  border: 1px solid #d6ddcb;
+  border-radius: 6px;
+  background: #f2f4eb;
+  color: #526849;
+  font-size: 12px;
+}
+
+.memo .diary-button:hover {
+  background: #e5eadb;
+}
+
+.memo .input-hint {
+  margin-top: 10px;
+  color: #76816c;
+  font-size: 10px;
+}
+
+.memo .memo-error { color: #9a463c; font-size: 12px; margin-top: 12px; }

@@ -1,3 +1,8 @@
+/**
+ * AI 테스트 화면이 POST /api/ai/generate로 보낸 질문을 받습니다.
+ * prompt(질문)가 비었는지 검사 → AiService로 전달 → 모델 답변을 화면으로 반환합니다.
+ * 기록 검색이 아니라 일반 질문 전달 테스트입니다. 메모 DB 저장 기능과는 별개입니다.
+ */
 
 package com.example.backend.controller;
 
@@ -29,7 +34,7 @@ public class AiController {
     ) {
         String prompt = request.get("prompt");
 
-        // 빈 질문 차단
+        // null은 질문 항목 자체가 없는 경우, isBlank는 공백/줄바꿈만 있는 경우도 포함합니다.
         if (prompt == null || prompt.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of(
@@ -45,7 +50,9 @@ public class AiController {
 
         } catch (ResourceAccessException e) {
 
-            // 연결 및 응답 타임아웃 구분
+            // 타임아웃은 정해진 시간 안에 응답을 못 받은 경우입니다(504).
+            // 예외가 다른 예외를 감싸고 있을 수 있어 getCause로 원인을 하나씩 따라갑니다.
+            // 시간 초과가 아니면 서버에 연결하지 못한 경우로 안내합니다(503).
             Throwable cause = e;
             while (cause != null) {
                 if (cause instanceof HttpTimeoutException
