@@ -86,6 +86,10 @@
   background: #4d654c;
 }
 
+.memo .primary:disabled {
+  cursor: default;
+}
+
 .memo .description {
   font-size: 11px;
   color: #858d78;

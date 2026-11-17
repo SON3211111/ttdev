@@ -113,6 +113,10 @@
   line-height: 1.8;
 }
 
+.memory-button:disabled {
+  cursor: default;
+}
+
 .memory .coming {
   margin-top: 16px;
 }
