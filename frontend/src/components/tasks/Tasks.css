@@ -78,7 +78,7 @@
 .task-dashboard { display: grid; gap: 24px; }
 .task-dashboard > h2 { margin-bottom: 0; }
 .task-dashboard h3 { margin-top: 0; }
-.task-overdue { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-top: -14px; }
+.task-chart-total { margin-top: 4px; font-size: 12px; }
 .task-dashboard > section ~ section { border-top: 1px solid #e0e5d8; padding-top: 20px; }
 .task-status-chart {
   --task-todo: #c4cdb9;

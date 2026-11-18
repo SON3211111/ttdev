@@ -6,8 +6,10 @@ import useTaskQuery from './useTaskQuery'
 function DayChart({ title, days, upcoming = false }: { title: string; days: TaskDayCount[]; upcoming?: boolean }) {
   const heading = useId()
   const maximum = Math.max(1, ...days.map(day => day.count))
+  const total = days.reduce((sum, day) => sum + day.count, 0)
   return <section className={upcoming ? 'task-upcoming-chart' : undefined} aria-labelledby={heading}>
     <h3 id={heading}>{title}</h3>
+    <p className="task-chart-total">총 <strong>{total} 개</strong></p>
     <ol className="task-trend">
       {days.map(day => <li key={day.date} className={upcoming && day.count === maximum ? 'task-busiest-day' : undefined}>
         <strong>{day.count}</strong>
@@ -35,9 +37,9 @@ function StatusChart({ total, doing, done }: Pick<Dashboard, 'total' | 'doing' |
         <div><strong>{total}</strong><small>전체</small></div>
       </div>
       <ul className="task-donut-legend">
-        <li className="task-donut-todo">{taskStatuses.TODO} <strong>{todo}건</strong></li>
-        <li className="task-donut-doing">{taskStatuses.DOING} <strong>{doing}건</strong></li>
-        <li className="task-donut-done">{taskStatuses.DONE} <strong>{done}건</strong></li>
+        <li className="task-donut-todo">{taskStatuses.TODO} <strong>{todo}개</strong></li>
+        <li className="task-donut-doing">{taskStatuses.DOING} <strong>{doing}개</strong></li>
+        <li className="task-donut-done">{taskStatuses.DONE} <strong>{done}개</strong></li>
       </ul>
     </div>
   </section>
@@ -47,15 +49,12 @@ export default function TaskDashboard({ revision, onRetry }: { revision: number;
   const result = useTaskQuery<Dashboard>('/api/tasks/dashboard', revision)
   const data = result?.data
   return <section className="task-panel task-dashboard" aria-labelledby="task-dashboard-title">
-    <h2 id="task-dashboard-title">내 일정 한눈에</h2>
+    <h2 id="task-dashboard-title">내 일정을 한눈에 확인해요</h2>
     {!result && <p role="status">집계를 불러오는 중입니다…</p>}
     {result?.error && <p role="alert">{result.error} <button onClick={onRetry}>집계 다시 조회</button></p>}
     {data && <>
       <StatusChart total={data.total} doing={data.doing} done={data.done} />
       <DayChart title="일주일 안에 끝낼 일" days={data.upcomingDue ?? []} upcoming />
-      <div className={data.overdue ? 'task-overdue task-danger' : 'task-overdue'}>
-        <span>기한이 지난 일</span><strong>{data.overdue}건</strong>
-      </div>
       <DayChart title="지난 일주일에 끝낸 일" days={data.trend} />
     </>}
   </section>
