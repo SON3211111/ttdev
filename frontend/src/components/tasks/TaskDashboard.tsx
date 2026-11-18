@@ -51,11 +51,11 @@ export default function TaskDashboard({ revision, onRetry }: { revision: number;
     {!result && <p role="status">집계를 불러오는 중입니다…</p>}
     {result?.error && <p role="alert">{result.error} <button onClick={onRetry}>집계 다시 조회</button></p>}
     {data && <>
+      <StatusChart total={data.total} doing={data.doing} done={data.done} />
       <DayChart title="일주일 안에 끝낼 일" days={data.upcomingDue ?? []} upcoming />
       <div className={data.overdue ? 'task-overdue task-danger' : 'task-overdue'}>
         <span>기한이 지난 일</span><strong>{data.overdue}건</strong>
       </div>
-      <StatusChart total={data.total} doing={data.doing} done={data.done} />
       <DayChart title="지난 일주일에 끝낸 일" days={data.trend} />
     </>}
   </section>

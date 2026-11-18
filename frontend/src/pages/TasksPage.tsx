@@ -90,7 +90,8 @@ export default function TasksPage({ selectedTask, onHome }: {
         <h1>일정 관리</h1>
         <button className="task-primary" disabled={Boolean(editor) || busy} onClick={() => openEditor(null)}>＋ 할 일 추가</button>
       </header>
-      <div className="grid">
+      <div className="task-workspace-content">
+        <TaskDashboard revision={revision} onRetry={refresh} />
         <div className="home-primary">
           {editor && <TaskEditor task={editor.task} busy={busy} error={error}
             onClose={() => { setEditor(null); setError('') }}
@@ -159,9 +160,6 @@ export default function TasksPage({ selectedTask, onHome }: {
             </nav>}
           </section>
         </div>
-        <aside className="home-sidebar" aria-label="일정 요약">
-          <TaskDashboard revision={revision} onRetry={refresh} />
-        </aside>
       </div>
     </main>
   </div>
