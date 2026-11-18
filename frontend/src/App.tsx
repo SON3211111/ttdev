@@ -1,56 +1,63 @@
-// 어떤 화면을 보여줄지 고르는 파일입니다. page가 home이면 홈, ai-test면 AI 테스트를 보여줍니다.
-// onOpenAiTest는 HomePage에 전달하는 함수입니다. 홈의 버튼이 이 함수를 부르면 page가 바뀝니다.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AiTestPage from './pages/AiTestPage'
 import HomePage from './pages/HomePage'
 import TasksPage from './pages/TasksPage'
 import './App.css'
 
+type SelectedTask = { id: string; source: 'calendar' | 'schedules' }
+
+function readLocation() {
+  const section = window.location.hash.slice(1) || 'home'
+  const selectedTask = section === 'tasks' ? window.history.state?.selectedTask as SelectedTask | undefined : undefined
+  return { section, selectedTask: selectedTask ?? null }
+}
+
 export default function App() {
-  const [page, setPage] = useState<'home' | 'records' | 'ai-test' | 'tasks'>('home')
+  const [{ section, selectedTask }, setLocation] = useState(readLocation)
   const [taskHomeRevision, setTaskHomeRevision] = useState(0)
-  const [selectedTask, setSelectedTask] = useState<{ id: string; source: 'calendar' | 'schedules' } | null>(null)
 
-  function navigate(next: typeof page) {
-    setPage(next)
+  useEffect(() => {
+    function restoreLocation() {
+      setLocation(readLocation())
+      setTaskHomeRevision(value => value + 1)
+    }
+    window.addEventListener('popstate', restoreLocation)
+    return () => window.removeEventListener('popstate', restoreLocation)
+  }, [])
+
+  function navigate(next: string, task: SelectedTask | null = null) {
+    if (section !== next || selectedTask?.id !== task?.id || selectedTask?.source !== task?.source) {
+      window.history.pushState({ selectedTask: task }, '', `#${next}`)
+      setLocation({ section: next, selectedTask: task })
+    }
     window.scrollTo(0, 0)
-  }
-
-  function navigateHome(section: string) {
-    navigate(section === 'records' ? 'records' : 'home')
-    if (section === 'records' || section === 'home') return
+    if (next !== 'calendar' && next !== 'schedules' && next !== 'memory') return
     requestAnimationFrame(() => {
-      document.getElementById(section)?.scrollIntoView()
-      if (section === 'memory') document.getElementById('memory-question')?.focus({ preventScroll: true })
+      document.getElementById(next)?.scrollIntoView()
+      if (next === 'memory') document.getElementById('memory-question')?.focus({ preventScroll: true })
     })
   }
 
-  if (page === 'ai-test') {
+  if (section === 'ai-test') {
     return (
       <>
-        <button className="back" onClick={() => setPage('home')}>← 홈으로 돌아가기</button>
+        <button className="back" onClick={() => navigate('home')}>← 홈으로 돌아가기</button>
         <AiTestPage />
       </>
     )
   }
 
-  const tasksOpen = page === 'tasks'
+  const tasksOpen = section === 'tasks'
   return <>
     <div hidden={tasksOpen}>
-      <HomePage recordsOpen={page === 'records'} onHomeSection={navigateHome}
-        onOpenAiTest={() => setPage('ai-test')} taskHomeRevision={taskHomeRevision}
-        onOpenTasks={() => {
-          setSelectedTask(null)
-          navigate('tasks')
-        }}
-        onOpenTask={(id, source) => {
-          setSelectedTask({ id, source })
-          navigate('tasks')
-        }} />
+      <HomePage recordsOpen={section === 'records'} onHomeSection={navigate}
+        onOpenAiTest={() => navigate('ai-test')} taskHomeRevision={taskHomeRevision}
+        onOpenTasks={() => navigate('tasks')}
+        onOpenTask={(id, source) => navigate('tasks', { id, source })} />
     </div>
-    {tasksOpen && <TasksPage selectedTask={selectedTask} onHome={section => {
+    {tasksOpen && <TasksPage key={selectedTask?.id ?? 'list'} selectedTask={selectedTask} onHome={section => {
       setTaskHomeRevision(value => value + 1)
-      navigateHome(section)
+      navigate(section)
     }} />}
   </>
 }
