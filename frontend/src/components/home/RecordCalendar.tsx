@@ -144,11 +144,14 @@ export default function RecordCalendar({
       {Array.from({ length: days }, (_, index) => {
         const date = `${month}-${String(index + 1).padStart(2, '0')}`
         const dayRecords = records.filter(item => item.recordDate === date)
+        const dayTasks = tasks.filter(item => item.dueDate === date)
+        const completedTaskCount = dayTasks.filter(item => item.status === 'DONE').length
         const counts = [
           { kind: 'memo', label: '메모', count: dayRecords.filter(item => item.recordType === 'MEMO').length },
           { kind: 'diary', label: '일기', count: dayRecords.filter(item => item.recordType === 'DIARY').length },
           { kind: 'schedule', label: '약속', count: schedules.filter(item => item.scheduleDate === date).length },
-          { kind: 'task', label: '할 일', count: tasks.filter(item => item.dueDate === date).length },
+          { kind: 'task', label: '할 일', count: dayTasks.length - completedTaskCount },
+          { kind: 'task-done', label: '완료한 일', count: completedTaskCount },
         ].filter(item => item.count > 0)
         const summary = counts.map(item => `${item.label} ${item.count}개`).join(', ')
         return <button key={date} className={selectedDate === date ? 'chosen' : ''}
