@@ -19,12 +19,12 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
  try {
   await page.goto('http://localhost:5173');
   await page.locator('#memo').fill('보존할 메모 초안');
-  await page.getByRole('button',{name:'일기 쓰기',exact:true}).click();
+  await page.locator('.journal-composer').getByRole('button',{name:'일기 쓰기',exact:true}).click();
   const composer=page.locator('.diary-composer');
   await composer.waitFor();assert.equal(await page.locator('#memo').isVisible(),false);
   await composer.getByRole('button',{name:'취소',exact:true}).click();
   assert.equal(await page.locator('#memo').inputValue(),'보존할 메모 초안');
-  await page.getByRole('button',{name:'일기 쓰기',exact:true}).click();
+  await page.locator('.journal-composer').getByRole('button',{name:'일기 쓰기',exact:true}).click();
   assert.equal(await composer.getByRole('button',{name:'일기 저장',exact:true}).isDisabled(),true);
   for(const width of [1280,768,390]) {
    await page.setViewportSize({width,height:1000});

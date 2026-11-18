@@ -4,7 +4,7 @@
   background: #fffefa;
   border: 1px solid #e3e5d9;
   border-radius: 13px;
-  padding: 24px;
+  padding: 20px;
 }
 
 .memo .section-head {
@@ -15,36 +15,28 @@
 }
 
 .memo h2 {
-  font-size: 16px;
+  font-size: var(--journal-section-size, 18px);
   font-weight: 600;
   letter-spacing: -.5px;
 }
 
-.memo .swirl {
-  color: #718667;
-  font-size: 26px;
-  vertical-align: middle;
-  line-height: 1;
-}
-
-/* margin-top은 입력창 바깥 위쪽 여백입니다. 안내 글과 입력창이 붙지 않게 16px을 띄웁니다. */
 .memo textarea {
   display: block;
-  margin-top: 16px;
+  margin-top: 10px;
   width: 100%;
-  height: 148px;
+  height: 108px;
   resize: vertical;
-  min-height: 110px;
+  min-height: 88px;
   background: transparent;
   border: 0;
-  padding: 23px 0;
+  padding: 8px 0;
   color: #45523f;
-  line-height: 1.9;
-  font-size: 13px;
+  line-height: 1.65;
+  font-size: 16px;
 }
 
 .memo textarea::placeholder {
-  color: #959b8d;
+  color: #687460;
 }
 
 .memo-bottom {
@@ -52,13 +44,13 @@
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid #eeeee5;
-  padding-top: 17px;
+  padding-top: 12px;
   gap: 12px;
 }
 
 .memo-bottom label {
-  font-size: 10px;
-  color: #7b8270;
+  font-size: var(--journal-meta-size, 12px);
+  color: #56634f;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -69,17 +61,19 @@
   background: #f3f4ec;
   padding: 6px 8px;
   border-radius: 5px;
-  font-size: 11px;
-  color: #697360;
-  max-width: 132px;
+  font-size: 12px;
+  color: #465a43;
+  max-width: 136px;
 }
 
 .memo .primary {
-  background: #637c62;
+  background: #4f6850;
   color: white;
   padding: 10px 17px;
   border-radius: 7px;
-  font-size: 12px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .memo .primary:hover:enabled {
@@ -90,22 +84,13 @@
   cursor: default;
 }
 
-.memo .description {
-  font-size: 11px;
-  color: #858d78;
-  margin-top: 5px;
-}
-
 /* 아래 @media 조건의 화면 너비에서만 적용해 작은 화면의 입력창/버튼 간격을 줄입니다. */
 @media (max-width: 760px) {
   .memo.card {
-    padding: 20px;
+    padding: 16px;
   }
   .memo-bottom {
     flex-wrap: wrap;
-  }
-  .memo .primary {
-    font-size: 11px;
   }
 }
 
@@ -115,7 +100,7 @@
   border-radius: 6px;
   background: #f2f4eb;
   color: #526849;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .memo .diary-button:hover {
@@ -123,9 +108,9 @@
 }
 
 .memo .input-hint {
-  margin-top: 10px;
-  color: #76816c;
-  font-size: 10px;
+  margin-top: 6px;
+  color: #56634f;
+  font-size: 11px;
 }
 
 .memo .memo-error { color: #9a463c; font-size: 12px; margin-top: 12px; }

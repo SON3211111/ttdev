@@ -32,6 +32,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
     await page.goto('http://localhost:5173');
     const records = page.locator('#records');
     const calendar = page.locator('#calendar');
+    await page.getByRole('link', { name: '기록', exact: true }).click();
     await records.locator('.record-select').waitFor();
     await records.getByRole('button', { name: '일기', exact: true }).click();
     await records.getByText('기록을 불러오는 중입니다…').waitFor();
@@ -48,10 +49,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
     await records.getByRole('button', { name: '다시 조회', exact: true }).click();
     await records.getByText('아직 기록이 없어요.', { exact: false }).waitFor();
     failCalendar = true;
+    await page.getByRole('link', { name: '캘린더', exact: true }).click();
     await calendar.getByRole('button', { name: '다음 달', exact: true }).click();
-    await calendar.getByText('조회 실패 검증', { exact: false }).waitFor();
+    const calendarAlert = calendar.locator(':scope > [role="alert"]');
+    await calendarAlert.getByText('조회 실패 검증', { exact: false }).waitFor();
     failCalendar = false;
-    await calendar.getByRole('button', { name: '다시 조회', exact: true }).click();
+    await calendarAlert.getByRole('button', { name: '다시 조회', exact: true }).click();
     await calendar.getByText('캘린더를 불러오는 중입니다…').waitFor();
     await page.waitForFunction(() => document.querySelector('#calendar')?.getAttribute('aria-busy') === 'false');
     assert.equal(await calendar.locator('[role=alert]').count(), 0);

@@ -1,6 +1,8 @@
 import { apiRequest } from './request'
-import type { Schedule, ScheduleInput, SchedulePage, ScheduleStatus } from '../types/schedule'
+import type { CalendarSchedule, Schedule, ScheduleInput, SchedulePage, ScheduleStatus } from '../types/schedule'
 export const schedulesApi = {
+  month: (month: string, signal?: AbortSignal) =>
+    apiRequest<CalendarSchedule[]>(`/api/calendar/schedules?${new URLSearchParams({ month })}`, { signal }),
   list(page: number, signal?: AbortSignal) {
     const params = new URLSearchParams({ page: String(page), size: '20' })
     return apiRequest<SchedulePage>(`/api/schedules?${params}`, { signal })

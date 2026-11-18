@@ -83,6 +83,14 @@ class ScheduleApiTests {
             assertEquals("CANCELLED", json.readTree(request("GET", cancelled, null).body()).get("status").asText());
         } finally { for (String path : paths) request("DELETE", path, null); }
     }
+    @Test void calendarRejectsInvalidMonthsWithFieldError() throws Exception {
+        for (String query : List.of("", "?month=2026-13", "?month=0999-12", "?month=2026-11&month=2026-12", "?month=2026-11&status=PLANNED")) {
+            var uri = URI.create("http://localhost:" + port + "/api/calendar/schedules" + query);
+            var response = http.send(HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(400, response.statusCode(), response.body());
+            assertEquals("month", json.readTree(response.body()).get("fieldErrors").get(0).get("field").asText());
+        }
+    }
     @Test void rejectsBadInputsAndQueryConditions() throws Exception {
         var invalid = new ArrayList<Map<String,Object>>();
         invalid.add(input(" ", "2020-01-01", null)); invalid.add(input("a".repeat(101), "2020-01-01", null));

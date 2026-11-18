@@ -20,15 +20,23 @@ import { recordsApi } from '../api/records'
 import type { RecordFilter, RecordPage } from '../types/record'
 import './HomePage.css'
 
-type Props = { onOpenAiTest: () => void }
+type Props = {
+  recordsOpen: boolean
+  onHomeSection: (section: string) => void
+  onOpenAiTest: () => void
+  onOpenTasks: () => void
+  onOpenTask: (id: string, source: 'calendar' | 'schedules') => void
+  taskHomeRevision: number
+}
 
-export default function HomePage({ onOpenAiTest }: Props) {
+export default function HomePage({ recordsOpen, onHomeSection, onOpenAiTest, onOpenTasks, onOpenTask, taskHomeRevision }: Props) {
   // useState는 화면이 기억할 값입니다. set으로 시작하는 함수를 호출하면 값이 바뀌고 화면도 다시 그려집니다.
   // page는 0부터 시작합니다. revision은 재조회가 필요할 때 올리는 숫자이며 기록의 버전 번호가 아닙니다.
   const [writingDiary, setWritingDiary] = useState(false)
   const [filter, setFilter] = useState<RecordFilter>('전체')
   const [page, setPage] = useState(0)
   const [revision, setRevision] = useState(0)
+  const [scheduleRevision, setScheduleRevision] = useState(0)
   const [result, setResult] = useState<{ key: string; data: RecordPage | null; error: string } | null>(null)
   const [notice, setNotice] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
@@ -76,39 +84,61 @@ export default function HomePage({ onOpenAiTest }: Props) {
     refresh('메모를 저장했습니다. 최근 기록과 캘린더에 반영합니다.')
   }
 
-  // 아직 구현하지 않은 메뉴는 데이터 작업 대신 안내만 보여줍니다.
-  function showPending(name: string) { setNotice(name + ' 화면은 다음 단계에서 연결할 예정입니다.') }
+  function diarySaved(date: string) {
+    setSavedDate({ date })
+    setFilter('전체')
+    setPage(0)
+    refresh('일기를 저장했습니다. 목록과 캘린더에 반영합니다.')
+  }
+
+  // 홈이나 캘린더 어느 쪽에서 일정을 바꿔도 두 목록을 함께 다시 읽습니다.
+  function refreshSchedules() {
+    setScheduleRevision(value => value + 1)
+  }
+
+  function openRecord(id: string) {
+    setSelected(id)
+    if (!recordsOpen) onHomeSection('records')
+    requestAnimationFrame(() => document.querySelector('.archive-main .record-detail')?.scrollIntoView({ block: 'nearest' }))
+  }
 
   return (
     <div className="shell">
-      <SiteHeader onNavigate={showPending} />
-      <main id="home" className="home-main">
-        <HomeGreeting />
-        <div className="preview"><i />메모·일기·일정은 실제로 저장됩니다<span>AI 검색과 약속 준비는 아직 연결 전입니다.</span></div>
-        <p className="notice" role="status">{notice}</p>
-        <div className="grid">
-          <div className="home-primary">
-            <div hidden={writingDiary}><QuickMemo onSave={addMemo} onWriteDiary={() => setWritingDiary(true)} /></div>
-            {writingDiary && <DiaryForm onClose={() => setWritingDiary(false)} onSaved={date => {
-              setWritingDiary(false); setSavedDate({ date }); setFilter('전체'); setPage(0); refresh('일기를 저장했습니다. 목록과 캘린더에 반영합니다.')
-            }} />}
-            <RecordCalendar revision={revision} savedDate={savedDate} onSelect={id => {
-              setSelected(id)
-              document.getElementById('records')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }} />
-          </div>
-          <aside className="home-sidebar" aria-label="최근 기록과 일정, 기억 찾기">
-            <div className="records-area">
-              <RecentRecords data={data} loading={loading} error={error} filter={filter}
-                onFilterChange={value => { setFilter(value); setPage(0) }}
-                onReload={() => refresh()} onPageChange={setPage} onSelect={setSelected} />
-              {selected && <RecordDetail key={selected} id={selected} onClose={() => setSelected(null)} onChanged={refresh} />}
+      <SiteHeader recordsActive={recordsOpen} onHomeSection={onHomeSection}
+        onNavigate={() => onHomeSection('memory')} onOpenTasks={onOpenTasks} />
+      <main id="home" className="home-main journal-home" hidden={recordsOpen}>
+        <div className="grid journal-grid">
+          <div className="journal-writing">
+            <HomeGreeting />
+            <div className="journal-composer">
+              <div hidden={writingDiary}><QuickMemo onSave={addMemo} onWriteDiary={() => setWritingDiary(true)} /></div>
+              {writingDiary && <DiaryForm onClose={() => setWritingDiary(false)} onSaved={date => {
+                setWritingDiary(false)
+                diarySaved(date)
+              }} />}
+              <p className="notice" role="status">{notice}</p>
             </div>
-            <UpcomingSchedules />
+          </div>
+          <div className="home-sidebar home-agenda">
             <MemoryGuide />
-          </aside>
+            <UpcomingSchedules sharedRevision={scheduleRevision} onChanged={refreshSchedules} taskRevision={taskHomeRevision}
+              onOpenTasks={onOpenTasks} onOpenTask={id => onOpenTask(id, 'schedules')} />
+          </div>
+          <div className="journal-records home-primary">
+            <RecordCalendar revision={revision} scheduleRevision={scheduleRevision} taskRevision={taskHomeRevision} savedDate={savedDate}
+              onOpenTask={id => onOpenTask(id, 'calendar')}
+              onSaveMemo={addMemo} onDiarySaved={diarySaved} onScheduleChanged={refreshSchedules} onSelect={openRecord} />
+          </div>
         </div>
         <SiteFooter onOpenAiTest={onOpenAiTest} />
+      </main>
+      <main className="home-main archive-main" aria-label="기록" hidden={!recordsOpen}>
+        <div className="records-area">
+          <RecentRecords data={data} loading={loading} error={error} filter={filter}
+            onFilterChange={value => { setFilter(value); setPage(0) }}
+            onReload={() => refresh()} onPageChange={setPage} onSelect={openRecord} />
+          {selected && <RecordDetail key={selected} id={selected} onClose={() => setSelected(null)} onChanged={refresh} />}
+        </div>
       </main>
     </div>
   )

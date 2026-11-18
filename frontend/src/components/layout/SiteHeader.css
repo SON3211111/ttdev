@@ -60,6 +60,7 @@
   border-color: #657c65;
   font-weight: 600;
 }
+.site-header nav button[aria-current="page"] { cursor: default; }
 
 .site-header nav button span {
   color: #718767;
@@ -78,7 +79,7 @@
     min-height: 90px;
     flex-wrap: wrap;
     padding: 18px 22px 0;
-    gap: 12px;
+    gap: clamp(2px, 2vw, 12px);
   }
   .site-header .brand {
     font-size: 25px;
@@ -104,6 +105,11 @@
     padding: 8px 4px 13px;
     font-size: 12px;
   }
+}
+
+@media (max-width: 360px) {
+  .site-header { padding-inline: 14px; }
+  .site-header nav a, .site-header nav button { padding-inline: 2px; }
 }
 
 /* 더 작은 화면에 맞춰 아래 너비 조건에서 메뉴가 차지하는 공간을 추가로 조정합니다. */

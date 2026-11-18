@@ -1,4 +1,4 @@
-// 앞으로 만들 AI 기억 검색의 입력창 미리보기입니다. 현재는 실제 검색 요청을 보내지 않습니다.
+// 기록·약속·할 일에 질문하는 화면의 미리보기입니다.
 // question은 입력한 질문, notice는 버튼을 누른 뒤 보여줄 안내입니다. 둘 다 이 화면 안에서만 기억합니다.
 import './MemoryGuide.css'
 import { useState } from 'react'
@@ -8,24 +8,21 @@ export default function MemoryGuide() {
   const [notice, setNotice] = useState('')
 
   return (
-    <aside className="memory" aria-labelledby="memory-title">
-      <span className="spark" aria-hidden="true">✧</span>
-      <p className="eyebrow">FIND YOUR MEMORIES</p>
-      <h2 id="memory-title">기억이 필요한 순간,<br />물어보세요.</h2>
-      <p>일기와 메모에서 관련 기억을 찾고<br />답변의 원문을 함께 확인하는 공간이에요.</p>
+    <aside id="memory" className="memory" aria-labelledby="memory-title">
+      <h2 id="memory-title">메모리아에 물어보기</h2>
       <form className="memory-search" onSubmit={event => {
         event.preventDefault()
-        if (question.trim()) setNotice('검색 화면 미리보기입니다. 실제 기록 검색과 원문 출처는 AI 기능 구현 후 연결됩니다.')
+        if (question.trim()) setNotice('미리보기예요. 데이터 조회와 출처가 있는 답변은 연결 예정이에요.')
       }}>
-        <label htmlFor="memory-question">어떤 기억을 찾고 싶나요?</label>
+        <label htmlFor="memory-question">기록, 약속, 할 일에 대해 물어보세요.</label>
         <input id="memory-question" value={question} onChange={event => {
           setQuestion(event.target.value)
           setNotice('')
-        }} placeholder="민수랑 갔던 카페가 어디였지?" />
-        <button className="memory-button" disabled={!question.trim()}>기억 찾기 미리보기 ↗</button>
+        }} placeholder="이번 주에 마감하는 할 일은 뭐야?" />
+        <button className="memory-button" disabled={!question.trim()}>미리보기</button>
       </form>
       <p className="search-notice" role="status">{notice}</p>
-      <span className="coming">AI 검색 연결 예정 · 현재는 검색되지 않아요</span>
+      <span className="coming">AI 답변 연결 예정</span>
     </aside>
   )
 }

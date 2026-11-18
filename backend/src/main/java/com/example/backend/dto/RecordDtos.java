@@ -35,7 +35,7 @@ public final class RecordDtos {
         public static Item from(MemoryRecord record) {
             String content = record.getContent().replace('\n', ' ');
             // 목록 미리보기는 줄바꿈을 공백으로 바꾼 앞 120개 문자입니다.
-            // codePointCount/offsetByCodePoints는 😀처럼 UTF-16 두 칸을 쓰는 문자도 중간에서 자르지 않습니다.
+            // codePointCount/offsetByCodePoints는 UTF-16 두 칸을 쓰는 문자도 중간에서 자르지 않습니다.
             // 저장 길이 제한(UTF-16 10,000)과 목록 미리보기 길이는 서로 다른 규칙입니다.
             int end = content.offsetByCodePoints(0, Math.min(120, content.codePointCount(0, content.length())));
             return new Item(record.getId().toString(), record.getRecordType(), record.getTitle(),

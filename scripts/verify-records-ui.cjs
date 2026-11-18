@@ -45,6 +45,7 @@ async function until(check, label) {
     assert.equal(await date.inputValue(),'2020-01-02');
     await page.unroute('**/api/records');
     await page.reload();
+    await page.getByRole('link', { name: '기록', exact: true }).click();
     const row=page.locator('.record-select').filter({hasText:marker});
     await row.waitFor();
     await row.click();
@@ -61,6 +62,7 @@ async function until(check, label) {
     await until(async()=>await page.locator('.detail-body').textContent().catch(()=>null)===marker+' 수정 완료','update');
     const detail=await (await context.request.get(base+'/api/records/'+saved.id)).json();
     assert.equal(detail.contentVersion,2);assert.equal(detail.recordDate,'2020-01-01');
+    await page.getByRole('link', { name: '홈', exact: true }).click();
 
     // page.route는 요청을 가로채 가짜 응답을 줍니다. 실제 서버를 끄지 않고 저장 실패 화면을 검사합니다.
     // 503으로 실패해도 사용자가 쓴 내용과 날짜가 남아야 합니다.
@@ -82,8 +84,9 @@ async function until(check, label) {
     const secondResponse=page.waitForResponse(response=>response.url().endsWith('/api/records')&&response.request().method()==='POST');
     await page.getByRole('button',{name:'＋ 메모 남기기'}).click();
     const second=await (await secondResponse).json();ids.add(second.id);
+    await until(async()=>await input.inputValue()==='', 'input cleared after second save');
+    await page.getByRole('link', { name: '기록', exact: true }).click();
     await page.getByText('목록 조회 실패 검증',{exact:true}).waitFor();
-    assert.equal(await input.inputValue(),'');
     await page.unroute('**/api/records?**');
     await page.getByRole('button',{name:'다시 조회',exact:true}).click();
     await page.locator('.record-select').filter({hasText:marker+' 목록실패 저장성공'}).waitFor();
@@ -113,6 +116,7 @@ async function until(check, label) {
     await until(async()=>!await page.locator('.record-detail').isVisible(),'deleted detail closed');
     assert.equal((await context.request.get(base+'/api/records/'+saved.id)).status(),404);ids.delete(saved.id);
     await context.request.delete(base+'/api/records/'+second.id);ids.delete(second.id);
+    await page.getByRole('link', { name: '홈', exact: true }).click();
     await input.fill('');
     await page.reload();
     await until(async()=>!await page.getByText('기록을 불러오는 중입니다…').isVisible(),'reload');

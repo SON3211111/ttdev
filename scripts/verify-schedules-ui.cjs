@@ -65,7 +65,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   assert.equal((await page.request.put('http://localhost:5173/api/schedules/' + id,{data:{...input,status:'CANCELLED'}})).status(),200);
   assert.equal((await page.request.put('http://localhost:5173/api/schedules/' + id,{data:{...input,status:'PLANNED'}})).status(),200);
   await page.reload(); await open(marker);
-  assert.equal(await section.getByRole('button',{name:'일정 관리',exact:true}).count(),0);
+  assert.equal(await section.getByRole('button',{name:'일정 관리',exact:true}).count(),1);
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   page.once('dialog', d => d.dismiss()); await editor.getByRole('button',{name:'영구 삭제',exact:true}).click();

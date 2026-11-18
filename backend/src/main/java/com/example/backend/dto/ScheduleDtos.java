@@ -18,4 +18,11 @@ public final class ScheduleDtos {
         }
     }
     public record Listing(List<Detail> items, int page, int size, long totalElements, int totalPages) {}
+    public record CalendarItem(String id, String title, LocalDate scheduleDate, String scheduleTime, String status) {
+        public static CalendarItem from(Schedule value) {
+            return new CalendarItem(value.getId().toString(), value.getTitle(), value.getScheduleDate(),
+                value.getScheduleTime() == null ? null : value.getScheduleTime().format(DateTimeFormatter.ofPattern("HH:mm")),
+                value.getStatus());
+        }
+    }
 }

@@ -23,6 +23,11 @@ public class ScheduleService {
         return ScheduleDtos.Detail.from(repository.save(new Schedule(input.title(), request.scheduleDate(), input.time(), input.location(), input.description(), now())));
     }
     public ScheduleDtos.Detail detail(long id) { return ScheduleDtos.Detail.from(find(id)); }
+
+    public java.util.List<ScheduleDtos.CalendarItem> calendar(YearMonth month) {
+        return repository.calendar(month.atDay(1), month.atEndOfMonth()).stream()
+            .map(ScheduleDtos.CalendarItem::from).toList();
+    }
     @Transactional
     public ScheduleDtos.Detail update(long id, ScheduleDtos.Update request) {
         var schedule = find(id);

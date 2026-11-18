@@ -11,35 +11,10 @@
   padding: 49px 28px 0;
 }
 
-.preview {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  font-size: 11px;
-  color: #62735e;
-  background: #eeefe6;
-  border: 1px solid #e3e6d9;
-  border-radius: 7px;
-  padding: 9px 13px;
-}
-
-.preview span {
-  margin-left: auto;
-  color: #78806e;
-}
-
-.preview i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #839571;
-}
-
 .notice {
   color: #5e755d;
   font-size: 12px;
-  min-height: 29px;
-  padding: 5px 0;
+  margin-bottom: 16px;
 }
 
 .grid {
@@ -70,16 +45,6 @@
   .home-main {
     padding: 30px 20px 0;
   }
-  .preview {
-    flex-wrap: wrap;
-    font-size: 10px;
-    gap: 5px;
-  }
-  .preview span {
-    width: 100%;
-    margin-left: 10px;
-    font-size: 9px;
-  }
   .grid {
     grid-template-columns: 1fr;
     gap: 25px;
@@ -98,5 +63,57 @@
 .home-primary > .record-calendar { margin-top: 0; }
 
 /* flex-wrap: wrap은 버튼들이 가로로 다 들어가지 않으면 다음 줄로 내려가게 합니다. */
-.home-sidebar .records .tabs,
-.home-sidebar .records .section-head { flex-wrap: wrap; }
+.records-area .records .tabs,
+.records-area .records .section-head { flex-wrap: wrap; }
+.notice:empty { margin: 0; }
+.home-main.journal-home {
+  --journal-section-size: 18px;
+  --journal-entry-size: 14px;
+  --journal-meta-size: 12px;
+  padding-top: 34px;
+}
+.journal-grid {
+  grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr);
+  grid-template-areas: "writing writing" "records agenda";
+  gap: 30px 36px;
+}
+.journal-writing {
+  grid-area: writing;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
+  gap: 28px;
+  align-items: start;
+  background: #243c32;
+  color: #f8f6eb;
+  border-radius: 14px;
+  padding: clamp(18px, 4vw, 42px);
+}
+.journal-composer { min-width: 0; color: #354034; }
+.journal-composer .notice { color: #e5eedd; margin: 8px 0 0; }
+.journal-composer .notice:empty { margin: 0; }
+.journal-composer .memo.card { border-color: transparent; }
+.journal-records { grid-area: records; }
+.journal-home .home-agenda { grid-area: agenda; gap: 0; }
+.journal-home .home-agenda > .memory { margin-bottom: 18px; }
+.journal-home .home-agenda > section {
+  padding: 12px 0 20px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.journal-home .home-agenda > section + section { border-top: 1px solid #dce3d4; padding-top: 20px; }
+.journal-home .home-agenda h2 { font-size: var(--journal-section-size); }
+.journal-home .home-agenda .schedule .description,
+.journal-home .home-agenda .event-copy > span { color: #56634f; font-size: var(--journal-meta-size); }
+.journal-home .home-agenda .schedule .event { padding-block: 10px; border-bottom: 1px solid #e2e8dc; }
+.journal-home .home-agenda .event-copy strong { font-size: var(--journal-entry-size); }
+.journal-home .home-agenda .event .date-tile { background: transparent; }
+.journal-home .home-agenda .task-actions button { background: transparent; padding-inline: 0; }
+.journal-home .home-agenda .task-actions { gap: 16px; }
+.archive-main { max-width: 800px; padding-bottom: 44px; }
+
+@media (max-width: 760px) {
+  .home-main.journal-home { padding-top: 24px; }
+  .journal-grid { grid-template-columns: 1fr; grid-template-areas: "writing" "agenda" "records"; gap: 20px; }
+  .journal-writing { grid-template-columns: 1fr; gap: 14px; }
+}

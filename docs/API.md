@@ -1,6 +1,6 @@
 # MEMORIA 현재 API
 
-2026-11-17, 4단계까지 구현한 계약이다. 미구현 최종 목표와 구분한다. 브라우저는 /api 프록시를 사용하며 백엔드는 localhost:8080에서 실행한다. 인증은 없는 로컬 단일 사용자 MVP다.
+2026-11-18 기준 통합 캘린더와 개인 작업 관리까지 구현한 계약이다. 브라우저는 /api 프록시를 사용하며 백엔드는 localhost:8080에서 실행한다. 인증은 없는 로컬 단일 사용자 MVP다.
 
 ## 기록
 
@@ -34,6 +34,35 @@
 
 상세와 목록 항목은 id(문자열), title, scheduleDate, scheduleTime(HH:mm 또는 null), location, description, status, createdAt, updatedAt이다. 페이지 응답은 기록과 같다. 작성/수정 시각은 UTC이며 일정은 DB와 같은 마이크로초 정밀도다.
 
+## 통합 캘린더
+
+| Method | URL | 동작 |
+|---|---|---|
+| GET | /api/calendar/schedules?month=2026-11 | 해당 월의 예정·완료·취소 일정 요약 |
+| GET | /api/calendar/tasks?month=2026-11 | 해당 월에 마감일이 있는 할 일 요약 |
+| GET | /api/records?start=2026-11-01&end=2026-11-30&page=0&size=100 | 해당 월의 메모·일기 요약 |
+
+일정 월 조회는 `month` 하나만 받는다. 1000-01~9999-12의 `YYYY-MM` 형식을 지원하고 시작일과 마지막 날을 모두 포함한다. 결과는 날짜·시간·ID 순의 배열이며, 항목은 id, title, scheduleDate, scheduleTime, status다. 해당 월 일정이 없으면 빈 배열이다. 일정 상세와 변경은 기존 일정 CRUD API를 사용한다.
+
+할 일 월 조회도 같은 `month` 형식을 사용하며 id, title, dueDate, status를 반환한다. 마감일이 있는 모든 상태의 항목을 포함한다. 화면에서는 메모·일기·일정·할 일을 날짜별로 함께 표시한다. 기록은 여러 페이지를 모두 모으며, 할 일 상세와 변경은 기존 Task API를 사용한다.
+
+## 개인 작업과 대시보드
+
+| Method | URL | 동작 |
+|---|---|---|
+| GET | /api/tasks | 작업 목록. `status` 선택, `page` 기본 0, 페이지당 20개 |
+| GET | /api/tasks/focus | 미완료 작업 중 마감이 빠른 순 최대 3개 |
+| GET | /api/tasks/dashboard | 전체·완료·하는 중·지연 건수, 최근 7일 완료 추이, 앞으로 7일 마감 분포 |
+| POST | /api/tasks | 등록, 201 + Location. 기본 상태 TODO |
+| GET / PUT / DELETE | /api/tasks/{id} | 상세 조회 / 내용 수정 / 작업과 상태 변경 이력 삭제 |
+| PUT | /api/tasks/{id}/status | `{ "status": "TODO" }`처럼 원하는 상태를 지정한다. TODO·DOING·DONE 사이에서 바로 이동하며, 이미 같은 상태면 그대로 응답한다. |
+| PUT | /api/tasks/{id}/reopen | 완료 취소. 완료 직전의 TODO 또는 DOING으로 복귀 |
+| GET | /api/tasks/{id}/history | 상태 변경 이력, 최신 변경 먼저 |
+
+화면 입력은 `title` 필수(100자), `description` 선택(2,000자), `dueDate` 선택이다. 기존 호출의 `priority` 필드는 API에서 계속 받는다. 생략한 생성 요청에서는 NORMAL, 수정 요청에서는 저장된 값을 사용한다. 응답에는 상태, 완료·생성·수정 시각과 현재 지연 여부가 포함된다. 목록은 마감일이 빠른 순이며, 같은 마감일은 최근 등록 순이다. 마감일이 없는 작업은 마지막에 표시한다. 완료 요청을 반복해도 완료 시각과 상태 이력은 그대로다.
+
+대시보드는 `total`, `done`, `doing`, `overdue`, `trend: [{ date, count }]`, `upcomingDue: [{ date, count }]`를 반환한다. 마감일이 서울 기준 오늘보다 이른 미완료 작업을 지연으로 집계하므로 하는 중과 지연은 겹칠 수 있다. 두 그래프 모두 서울 기준 오늘을 포함하며, 해당 건이 없는 날은 0이다. `trend`는 오늘까지의 7일을, `upcomingDue`는 오늘부터 7일간 날짜별 마감하는 미완료 일정만 집계한다.
+
 ## 오류·제약
 
 기록/일정은 code, message, fieldErrors 배열로 오류를 응답한다. 항목별 오류는 field/message를 포함한다.
@@ -48,10 +77,8 @@
 
 미지원 JSON 필드는 거부한다. 날짜는 YYYY-MM-DD, 시각은 UTC ISO 8601 Z다. 수정 충돌 제어는 없으며 여러 탭에서는 마지막 저장이 반영된다. 원문 저장/조회는 AI를 호출하지 않는다.
 
-캘린더에서 미래 일정을 등록·관리하는 연결은 5단계 계획이다. 미래 날짜의 일정 생성/수정은 현재 CRUD API가 지원한다. 홈 목록 범위 밖 또는 완료·취소 일정의 날짜별 접근을 위한 캘린더 조회는 별도 구현하며, 제거한 홈 관리용 파라미터는 복원하지 않는다.
-
 ## 아직 미구현인 서비스 API
 
-/api/calendar, /api/ai/search, /api/schedules/{id}/prepare는 후속 단계다. 기존 /api/ai/generate는 일반 생성 연결 테스트용이며 기록 기반 답변·출처를 제공하지 않는다. FastAPI /health 응답은 모델 준비나 AI 업무 기능 검증을 뜻하지 않는다.
+/api/ai/search와 /api/schedules/{id}/prepare는 후속 단계다. 기존 /api/ai/generate는 일반 생성 연결 테스트용이며 기록 기반 답변·출처를 제공하지 않는다. FastAPI /health 응답은 모델 준비나 AI 업무 기능 검증을 뜻하지 않는다.
 
 세부 데이터 정책은 [MINIMUM_DESIGN.md](MINIMUM_DESIGN.md), 검증 결과는 [STAGE4_CHECK.md](STAGE4_CHECK.md)를 참고한다.

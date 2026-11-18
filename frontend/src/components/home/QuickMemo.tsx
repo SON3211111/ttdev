@@ -9,12 +9,15 @@ import { dateString, today } from '../../utils/date'
 
 type Props = {
   onSave: (content: string, date: string) => Promise<void>
-  onWriteDiary: () => void
+  onWriteDiary?: () => void
+  onClose?: () => void
+  initialDate?: string
 }
 
-export default function QuickMemo({ onSave, onWriteDiary }: Props) {
+export default function QuickMemo({ onSave, onWriteDiary, onClose, initialDate }: Props) {
+  const prefix = onClose ? 'calendar-memo' : 'memo'
   const [content, setContent] = useState('')
-  const [date, setDate] = useState(today)
+  const [date, setDate] = useState(initialDate ?? today)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   // saving은 버튼을 '저장 중'으로 바꾸는 화면용 상태입니다.
@@ -45,21 +48,21 @@ export default function QuickMemo({ onSave, onWriteDiary }: Props) {
   }
 
   return (
-    <section className="memo card" aria-labelledby="memo-title">
+    <section className="memo card" aria-labelledby={`${prefix}-title`}>
       <div className="section-head">
-        <h2 id="memo-title"><span className="swirl"></span>MEMO</h2>
-        <button className="diary-button" onClick={onWriteDiary}>일기 쓰기</button>
+        <h2 id={`${prefix}-title`}>빠른 메모</h2>
+        {onWriteDiary && <button className="diary-button" onClick={onWriteDiary}>일기 쓰기</button>}
+        {onClose && <button className="diary-button" disabled={saving} onClick={onClose}>메모 작성 닫기</button>}
       </div>
-      <p className="description">짧은 생각은 메모로, 긴 이야기는 일기로 남겨보세요.</p>
-      <label className="sr-only" htmlFor="memo">메모 본문</label>
+      <label className="sr-only" htmlFor={prefix}>메모 본문</label>
       <textarea
-        id="memo"
+        id={prefix}
         ref={input}
         value={content}
         disabled={saving}
         maxLength={10000}
         onChange={event => setContent(event.target.value)}
-        placeholder={'지금 남기고 싶은 기억이 있나요?\n제목 없이, 본문만 적어도 괜찮아요.'}
+        placeholder="지금 떠오르는 생각을 적어보세요."
       />
       <div className="memo-bottom">
         <label>기록 날짜
@@ -67,7 +70,7 @@ export default function QuickMemo({ onSave, onWriteDiary }: Props) {
         </label>
         <button className="primary" disabled={!canSave || saving} onClick={save}>{saving ? '저장 중…' : '＋ 메모 남기기'}</button>
       </div>
-      <p className="input-hint">오늘 또는 지난 날짜의 기억을 남길 수 있어요. · {content.length.toLocaleString()} / 10,000</p>
+      <p className="input-hint">{content.length.toLocaleString()} / 10,000</p>
       {error && <p className="memo-error" role="alert">{error}</p>}
     </section>
   )

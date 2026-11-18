@@ -21,7 +21,7 @@ export default function RecentRecords(props: Props) {
   return (
     <section className="records" id="records" aria-labelledby="records-title" aria-busy={loading}>
       <div className="section-head">
-        <h2 id="records-title">최근 기록 <span className="count">{data?.totalElements ?? '—'}</span></h2>
+        <h2 id="records-title">전체 기록 <span className="count">{data?.totalElements ?? '—'}</span></h2>
         <span className="muted">기록 날짜 최신순</span>
       </div>
       <div className="tabs" aria-label="기록 종류 필터">

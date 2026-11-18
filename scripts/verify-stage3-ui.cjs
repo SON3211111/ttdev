@@ -27,7 +27,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
  page.on('pageerror', e => errors.push(e.message));
  try {
   await page.goto('http://localhost:5173');
-  await page.getByRole('button', {name:'일기 쓰기', exact:true}).click();
+  await page.locator('.journal-composer').getByRole('button', {name:'일기 쓰기', exact:true}).click();
   const form = page.locator('section').filter({has: page.locator('#diary-heading')});
   await form.getByLabel('제목 (선택)').fill(marker);
   await form.getByLabel('기록 날짜').fill('2020-02-29');
@@ -35,6 +35,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
   const response = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/api/records'));
   await form.getByRole('button', {name:'일기 저장',exact:true}).click();
   const saved = await response; assert.equal(saved.status(),201); id = (await saved.json()).id;
+  await page.getByRole('link', { name: '기록', exact: true }).click();
   const records = page.locator('#records');
   assert.equal(await records.locator('.record-search').count(), 0);
   await records.getByRole('button',{name:'일기',exact:true}).click();
@@ -51,6 +52,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
     assert.equal(fixture.status(),201); fixtureIds.push((await fixture.json()).id);
   }
   await page.reload();
+  await page.getByRole('link', { name: '기록', exact: true }).click();
   await records.getByRole('button',{name:'일기',exact:true}).click();
   await findDiary(marker + '-edited');
   page.once('dialog', d => d.accept());

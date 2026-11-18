@@ -1,122 +1,23 @@
-/* AI 기억 찾기 미리보기 카드의 배경/입력창/안내 모양입니다. .memory 안에서만 적용합니다. */
-.memory .eyebrow {
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: #7d8d74;
-  font-weight: 600;
-}
-
-.memory h2 {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -.5px;
-}
-
-.memory .spark {
-  position: absolute;
-  right: 26px;
-  top: 24px;
-  color: #8b9e76;
-  font-size: 31px;
-}
-
-.memory .coming {
-  font-size: 9px;
-  color: #71825f;
-  display: block;
-  margin-top: 37px;
-}
-
-/* 아래 @media 너비 조건에서는 카드 여백과 글자 크기를 작은 화면에 맞춥니다. */
-@media (max-width: 760px) {
-  .memory .eyebrow {
-    font-size: 8px;
-    letter-spacing: 1.5px;
-  }
-}
-
 .memory {
-  background: #eef0e5;
+  background: #edf0e5;
+  border: 1px solid #d9e1d0;
   border-radius: 12px;
-  min-height: 300px;
-  padding: 27px;
-  position: relative;
-  overflow: hidden;
+  padding: 18px;
+  scroll-margin-top: 16px;
 }
-
-.memory .eyebrow {
-  font-size: 8px;
-  letter-spacing: 1.4px;
-  margin-top: 6px;
-}
-
-.memory h2 {
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 1.65;
-  margin-top: 19px;
-  color: #5e7053;
-  letter-spacing: -.8px;
-}
-
-.memory>p:not(.eyebrow) {
-  font-size: 11px;
-  color: #7b886b;
-  line-height: 1.9;
-  margin-top: 12px;
-}
-
-/* 아래 @media 조건에서 질문 입력/안내 영역의 간격을 줄입니다. */
-@media (max-width: 760px) {
-  .memory {
-    min-height: 250px;
-  }
-}
-
-.memory-search {
-  position: relative;
-  margin-top: 20px;
-}
-
-.memory-search label {
-  display: block;
-  margin-bottom: 7px;
-  color: #617253;
-  font-size: 11px;
-}
-
+.memory h2 { font-size: 18px; font-weight: 600; }
+.memory-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; }
+.memory-search label { grid-column: 1 / -1; color: #4e6249; font-size: 12px; }
 .memory-search input {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cbd4be;
+  border: 1px solid #b8c7ad;
   border-radius: 6px;
-  background: #fafbf5;
-  padding: 11px 10px;
-  color: #45543c;
-  font-size: 11px;
+  background: #fffefa;
+  padding: 9px;
+  font-size: 13px;
 }
-
-.memory-button {
-  display: block;
-  margin-top: 10px;
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 6px;
-  background: #627859;
-  color: white;
-  font-size: 12px;
-}
-
-.memory .search-notice {
-  font-size: 11px;
-  color: #526449;
-  line-height: 1.8;
-}
-
-.memory-button:disabled {
-  cursor: default;
-}
-
-.memory .coming {
-  margin-top: 16px;
-}
+.memory-button { padding: 8px 10px; border-radius: 6px; background: #4f6850; color: #fff; font-size: 12px; }
+.memory-button:disabled { cursor: default; }
+.memory .coming, .memory .search-notice { display: block; color: #4e6249; font-size: 12px; margin-top: 8px; }
+.memory .search-notice:empty { margin: 0; }

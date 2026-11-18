@@ -1,12 +1,15 @@
 /*
  * 기록 API에서 던진 예외를 잡아 브라우저가 읽을 JSON 오류 응답으로 바꿉니다.
- * @RestControllerAdvice의 대상은 기록과 일정 Controller입니다. AI 테스트 오류는 AiController가 따로 처리합니다.
+ * 이 오류 응답은 기록·일정·캘린더 API에서 사용합니다.
  * code는 프로그램이 구분할 오류 이름, message는 사용자 안내, fieldErrors는 잘못된 입력 항목 목록입니다.
  * 사용자는 안내만 받습니다. 내부 SQL이나 예외 전체 내용을 응답으로 보내지 않습니다.
  */
 package com.example.backend.exception;
 
+import com.example.backend.controller.CalendarController;
 import com.example.backend.controller.RecordController;
+import com.example.backend.controller.ScheduleController;
+import com.example.backend.controller.TaskController;
 
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +17,10 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import java.util.List;
 
-@RestControllerAdvice(assignableTypes = {RecordController.class, com.example.backend.controller.ScheduleController.class})
+@RestControllerAdvice(assignableTypes = {RecordController.class, ScheduleController.class, CalendarController.class, TaskController.class})
 public class RecordErrorHandler {
     public record FieldError(String field, String message) {}
     public record ErrorBody(String code, String message, List<FieldError> fieldErrors) {}
@@ -28,7 +32,7 @@ public class RecordErrorHandler {
                 List.of(new FieldError(exception.getField(), exception.getMessage()));
         return ResponseEntity.status(exception.getStatus()).body(new ErrorBody(exception.getCode(), exception.getMessage(), fields));
     }
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
     // 역직렬화는 받은 JSON을 Java 객체로 바꾸는 과정입니다.
     // JSON 문법 오류, 잘못된 날짜, 허용하지 않은 필드가 있으면 요청 형식 오류(400)로 응답합니다.
     public ResponseEntity<ErrorBody> malformed() { return domain(RecordException.invalid()); }
