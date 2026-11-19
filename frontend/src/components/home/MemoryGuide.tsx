@@ -9,7 +9,7 @@ export default function MemoryGuide() {
 
   return (
     <aside id="memory" className="memory" aria-labelledby="memory-title">
-      <h2 id="memory-title">메모리아에 물어보기</h2>
+      <h2 id="memory-title">나의 하루에 물어보기</h2>
       <form className="memory-search" onSubmit={event => {
         event.preventDefault()
         if (question.trim()) setNotice('미리보기예요. 데이터 조회와 출처가 있는 답변은 연결 예정이에요.')

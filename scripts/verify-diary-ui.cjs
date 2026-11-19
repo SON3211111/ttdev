@@ -32,7 +32,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
    const title=await composer.locator('#diary-title').boundingBox();
    const body=await composer.locator('#diary-content').boundingBox();
    assert.ok(title.width>200 && body.height>=250);
-   if(process.env.DIARY_SCREENSHOT_DIR) await composer.screenshot({path:path.join(process.env.DIARY_SCREENSHOT_DIR,'memoria-diary-'+width+'.png')});
+   if(process.env.DIARY_SCREENSHOT_DIR) await composer.screenshot({path:path.join(process.env.DIARY_SCREENSHOT_DIR,'my-day-diary-'+width+'.png')});
   }
   await composer.getByLabel('제목 (선택)',{exact:true}).fill('기억하고 싶은 하루');
   await composer.getByLabel('일기 본문',{exact:true}).fill('오늘의 기억을 남깁니다.');

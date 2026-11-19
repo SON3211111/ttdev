@@ -97,7 +97,7 @@ export default function RecordDetail({ id, onClose, onChanged }: Props) {
           <p className="detail-meta">{record.embeddingStatus === 'COMPLETED' && record.indexedVersion === record.contentVersion ? 'AI 검색 준비 완료' : '원문 저장됨 · AI 검색 준비 전'}</p>
           <div className="detail-actions"><button disabled={busy} onClick={() => {
             setTitle(record.title ?? ''); setContent(record.content); setDate(record.recordDate); setError(''); setEditing(true)
-          }}>수정</button><button className="danger" disabled={busy} onClick={remove}>{busy ? '처리 중…' : '영구 삭제'}</button></div>
+          }}>수정</button><button className="danger" disabled={busy} onClick={remove}>{busy ? '처리 중…' : '삭제'}</button></div>
         </>}
       </>}
     </section>
