@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import java.util.List;
 
+// API에서 발생한 예외를 프론트가 읽을 수 있는 공통 오류 응답으로 변환합니다.
 @RestControllerAdvice(assignableTypes = {RecordController.class, ScheduleController.class, CalendarController.class, TaskController.class})
 public class RecordErrorHandler {
     public record FieldError(String field, String message) {}

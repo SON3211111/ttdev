@@ -1,3 +1,4 @@
+// API 공통 요청 함수입니다. 각 화면에서 쓰는 응답 타입을 호출자가 지정합니다.
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   try {
     const response = await fetch(path, {

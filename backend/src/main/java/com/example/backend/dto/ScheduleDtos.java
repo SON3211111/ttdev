@@ -18,6 +18,7 @@ public final class ScheduleDtos {
         }
     }
     public record Listing(List<Detail> items, int page, int size, long totalElements, int totalPages) {}
+    // 캘린더에 필요한 요약만 내려주고 장소와 메모는 상세 응답에서 제공합니다.
     public record CalendarItem(String id, String title, LocalDate scheduleDate, String scheduleTime, String status) {
         public static CalendarItem from(Schedule value) {
             return new CalendarItem(value.getId().toString(), value.getTitle(), value.getScheduleDate(),

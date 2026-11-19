@@ -5,6 +5,7 @@ const base = 'http://localhost:5173/api/schedules';
 const sleep = ms => new Promise(resolve => setTimeout(resolve,ms));
 const docker = args => execFileSync('docker',['compose',...args],{stdio:['ignore','pipe','pipe']}).toString();
 const inspect = (name,format) => execFileSync('docker',['inspect',name,'--format',format],{encoding:'utf8'}).trim();
+// 재시작 직후 일시적인 연결 실패를 허용하며 최대 90회까지 준비 상태를 확인합니다.
 async function wait(check) { for(let n=0;n<90;n++){try{if(await check())return;}catch{} await sleep(1000)} throw Error('서비스 준비 시간 초과'); }
 (async()=>{
  const ids=[]; const marker='stage4-runtime-'+Date.now(); let aiStopped=false;

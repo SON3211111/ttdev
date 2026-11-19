@@ -5,6 +5,7 @@ import useTaskQuery from './useTaskQuery'
 
 function DayChart({ title, days, upcoming = false }: { title: string; days: TaskDayCount[]; upcoming?: boolean }) {
   const heading = useId()
+  // 가장 큰 건수를 막대 높이 100%로 두고 나머지 높이를 비례 계산합니다. 모두 0일 때는 1로 나눕니다.
   const maximum = Math.max(1, ...days.map(day => day.count))
   const total = days.reduce((sum, day) => sum + day.count, 0)
   return <section className={upcoming ? 'task-upcoming-chart' : undefined} aria-labelledby={heading}>
@@ -24,9 +25,12 @@ function DayChart({ title, days, upcoming = false }: { title: string; days: Task
 
 function StatusChart({ total, doing, done }: Pick<Dashboard, 'total' | 'doing' | 'done'>) {
   const heading = useId()
+  // API가 전체·진행 중·완료 건수를 보내므로 나머지를 하기 전으로 계산합니다.
   const todo = total - doing - done
+  // 각 값은 원을 따라 색이 바뀌는 누적 위치입니다. 하기 전 30%, 하는 중 20%라면 경계는 30%, 50%입니다.
   const todoEnd = total ? todo / total * 100 : 0
   const doingEnd = total ? (todo + doing) / total * 100 : 0
+  // CSS 변수의 색을 각 구간에 칠합니다. 전체가 0건이면 빈 상태 색 하나를 씁니다.
   const background = total
     ? `conic-gradient(var(--task-todo) 0 ${todoEnd}%, var(--task-doing) ${todoEnd}% ${doingEnd}%, var(--task-done) ${doingEnd}% 100%)`
     : 'var(--task-empty)'

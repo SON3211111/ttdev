@@ -17,6 +17,7 @@ function App() {
 
   // 전송할 때 지난 답변/오류를 지우고 loading을 켭니다. loading이 켜져 있으면 버튼을 잠급니다.
   // try에서 응답을 읽고, catch에서 안내를 표시하며, finally에서 성공/실패와 관계없이 loading을 끕니다.
+  // 질문을 백엔드의 생성 테스트 API로 보냅니다. 이 경로에는 개인 기록 검색이 연결되어 있지 않습니다.
   const handleGenerate = async () => {
     if (!prompt.trim() || loading) return
 

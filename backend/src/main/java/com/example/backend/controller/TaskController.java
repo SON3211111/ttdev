@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.*;
 
+// 할 일 목록·상세·편집과 별도로 상태 변경, 변경 이력, 대시보드 집계 경로를 제공합니다.
 @RestController
 @RequestMapping("/api/tasks")
 public class TaskController {

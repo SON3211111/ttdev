@@ -12,6 +12,7 @@ import type { RecordDetail, RecordFilter, RecordPage } from '../types/record'
 // options에는 method(요청 방법), body(보낼 데이터), signal(취소 신호) 등을 넣습니다.
 function request<T>(path: string, options: RequestInit = {}) { return apiRequest<T>(`/api/records${path}`, options) }
 
+// 기록 CRUD와 통합 캘린더의 월간 기록 조회를 연결합니다.
 export const recordsApi = {
   async month(month: string, signal?: AbortSignal) {
     const [year, number] = month.split('-').map(Number)

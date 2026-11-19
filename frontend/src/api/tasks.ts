@@ -1,5 +1,6 @@
 import { apiRequest } from './request'
 
+// 서버 상태 값을 키로 사용하고 화면에는 각각의 한글 이름을 표시합니다.
 export const taskStatuses = { TODO: '하기 전', DOING: '하는 중', DONE: '완료' } as const
 export type TaskStatus = keyof typeof taskStatuses
 export type TaskInput = { title: string; description: string | null; dueDate: string | null }
@@ -8,6 +9,7 @@ export type CalendarTask = Pick<Task, 'id' | 'title' | 'status'> & { dueDate: st
 export type TaskPage = { items: Task[]; page: number; totalPages: number }
 export type TaskEvent = { previousStatus: TaskStatus; nextStatus: TaskStatus; changedAt: string }
 export type TaskDayCount = { date: string; count: number }
+// 전체 상태 집계와 두 주간 차트의 날짜별 건수를 함께 받습니다.
 export type Dashboard = {
   total: number; done: number; doing: number; overdue: number
   trend: TaskDayCount[]

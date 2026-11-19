@@ -38,6 +38,7 @@ public class ScheduleService {
     }
     @Transactional
     public void delete(long id) { repository.delete(find(id)); }
+    // 홈 목록은 서울 기준 오늘부터 6일 뒤까지, 예정 상태의 약속만 조회합니다.
     public ScheduleDtos.Listing list(int page, int size) {
         // 홈의 다가오는 예정 일정만 조회합니다. 외부 기간·상태 조건은 받지 않습니다.
         LocalDate start = LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")));
@@ -66,6 +67,7 @@ public class ScheduleService {
         return normalized.isEmpty() ? null : normalized;
     }
     private record Input(String title, LocalTime time, String location, String description) {}
+    // 약속 시간·장소·메모는 선택값입니다. 시간을 입력했을 때만 시각으로 변환합니다.
     private Input validate(String title, LocalDate date, String time, String location, String description) {
         String heading = text(title, 100, "title");
         if (heading == null) throw RecordException.validation("title", "일정명을 입력해주세요.");

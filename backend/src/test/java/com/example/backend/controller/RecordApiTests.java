@@ -14,6 +14,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// HTTP 요청으로 기록 API의 저장, 조회, 변경과 유효성 검사를 확인합니다.
 class RecordApiTests {
     @LocalServerPort int port;
     final HttpClient http = HttpClient.newHttpClient();

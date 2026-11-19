@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.Set;
 
+// 기록 API의 입력을 해석하고 목록·상세·변경 요청을 RecordService로 전달합니다.
 @RestController
 // 이 클래스 안의 모든 주소 앞에 /api/records가 붙습니다.
 @RequestMapping("/api/records")

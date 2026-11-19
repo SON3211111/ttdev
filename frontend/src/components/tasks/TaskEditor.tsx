@@ -9,6 +9,7 @@ type Props = {
   onClose: () => void
 }
 
+// 신규와 수정이 같은 입력 폼을 씁니다. 저장 요청과 오류 표시는 부모 화면이 관리합니다.
 export default function TaskEditor({ task, busy, error, onSave, onClose }: Props) {
   const heading = useId()
   const [title, setTitle] = useState(task?.title ?? '')

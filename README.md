@@ -21,6 +21,8 @@ docker compose ps
 
 브라우저에서 http://localhost:5173 을 엽니다. 백엔드는 8080, AI 서버는 8000 포트를 사용합니다. MySQL은 Compose 설정상 localhost:5506이며 실제 실행 포트는 docker compose ps로 확인합니다. 기본 스택은 React/TypeScript/Vite, Java 17/Spring Boot/JPA/Flyway, MySQL 8, FastAPI, Ollama, Qdrant입니다.
 
+Qdrant 대시보드는 http://127.0.0.1:16333/dashboard 에서 열 수 있습니다. Compose 내부에서 AI 서버는 `http://qdrant:6333`으로 접속합니다.
+
 DB 구조는 백엔드 시작 시 Flyway가 V1(records)·V2(schedules)·V3(tasks, task_transitions)를 적용하고 JPA가 검증합니다. 이미 적용한 SQL은 수정하지 않습니다. 로컬 DB 볼륨을 삭제하면 기록이 사라지므로 데이터 보존 시 docker compose down -v를 실행하지 않습니다.
 
 ~~~powershell

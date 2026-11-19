@@ -1,3 +1,4 @@
+/* 월간 날짜 칸과 기록·약속·할 일 종류별 배지를 정의합니다. */
 /* 달력 카드 모양입니다. 날짜는 grid의 repeat(7, ...)로 일~토 7칸을 같은 폭으로 나눕니다.
    [aria-current="date"]는 오늘의 테두리, .chosen은 사용자가 선택한 날짜의 배경입니다.
    아래 480px 미디어 쿼리는 휴대폰에서 날짜 칸 높이와 여백을 줄입니다. */
@@ -21,6 +22,7 @@
 .calendar-schedule { background: #f4ebd6; color: #70531c; }
 .calendar-task { background: #e1ecea; color: #355a56; }
 .calendar-days small { background: transparent; }
+/* 날짜 클릭으로 열리는 네이티브 dialog와 날짜별 목록의 배치를 정의합니다. */
 .calendar-dialog {
   width: min(540px, calc(100% - 28px));
   max-height: min(720px, calc(100dvh - 32px));

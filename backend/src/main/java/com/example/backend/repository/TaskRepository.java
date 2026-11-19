@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
+    // 상태 변경이나 삭제 전에 행을 잠가 같은 할 일에 대한 쓰기 요청을 순서대로 처리합니다.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from Task t where t.id = :id")
     Optional<Task> findForUpdate(long id);
@@ -27,6 +28,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByDueDateBetweenOrderByDueDateAscIdDesc(LocalDate start, LocalDate end);
 
+    // 전체와 상태별 건수, 마감일이 오늘보다 이른 미완료 건수를 한 쿼리에서 읽습니다.
     interface Counts {
         long getTotal();
         long getDone();
@@ -43,6 +45,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
         """)
     Counts counts(LocalDate today);
 
+    // 두 주간 그래프가 공유하는 날짜별 집계 결과입니다. 결과에 없는 날짜는 서비스에서 채웁니다.
     interface DayCount {
         LocalDate getDay();
         long getCount();

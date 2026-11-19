@@ -18,6 +18,7 @@ import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.util.Map;
 
+// 질문으로 AI 생성 연결을 점검하는 API입니다.
 @RestController
 @RequestMapping("/api/ai")
 public class AiController {

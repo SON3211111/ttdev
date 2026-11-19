@@ -60,6 +60,7 @@ public class TaskService {
     public TaskDtos.Item edit(long id, TaskDtos.Input request) {
         var input = validate(request);
         Task task = findForUpdate(id);
+        // 기존 클라이언트에서 우선순위를 생략한 수정 요청은 DB에 저장된 우선순위를 유지합니다.
         task.edit(input.title(), input.description(), request.priority() == null ? task.getPriority() : input.priority(), input.dueDate(), now());
         return TaskDtos.Item.from(task, LocalDate.now(SEOUL));
     }
@@ -78,11 +79,13 @@ public class TaskService {
     public TaskDtos.Item reopen(long id) {
         Task task = findForUpdate(id);
         if (task.getStatus() != Status.DONE) return TaskDtos.Item.from(task, LocalDate.now(SEOUL));
+        // 마지막 완료 이력의 이전 상태로 복원합니다. 완료 이력이 없다면 하기 전으로 되돌립니다.
         Status previous = transitions.findFirstByTaskIdAndNextStatusOrderByIdDesc(id, Status.DONE)
             .map(TaskTransition::getPreviousStatus).orElse(Status.TODO);
         return changeStatus(task, previous);
     }
 
+    // 호출한 쓰기 트랜잭션 안에서 현재 상태와 변경 이력을 함께 갱신합니다.
     private TaskDtos.Item changeStatus(Task task, Status next) {
         Instant now = now();
         LocalDate today = now.atZone(SEOUL).toLocalDate();
@@ -104,6 +107,7 @@ public class TaskService {
         tasks.delete(task);
     }
 
+    // 요약 수치와 두 차트가 같은 DB 스냅샷을 읽도록 합니다. 두 7일 범위에 모두 오늘이 포함됩니다.
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public TaskDtos.Dashboard dashboard() {
         LocalDate today = LocalDate.now(SEOUL);
@@ -115,6 +119,7 @@ public class TaskService {
         return new TaskDtos.Dashboard(totals.getTotal(), totals.getDone(), totals.getDoing(), totals.getOverdue(), trend, upcomingDue);
     }
 
+    // DB 집계에 없는 날짜도 0건으로 채워 차트에 날짜 순서대로 내려줍니다.
     private List<TaskDtos.Day> fillDates(LocalDate start, LocalDate end, List<TaskRepository.DayCount> rows) {
         Map<LocalDate, Long> byDay = new HashMap<>();
         for (var row : rows) byDay.put(row.getDay(), row.getCount());

@@ -1,6 +1,6 @@
 # MEMORIA 인수인계
 
-최종 갱신: 2026-11-18 (Asia/Seoul)
+최종 갱신: 2026-11-19 (Asia/Seoul)
 
 ## 현재 상태
 
@@ -23,9 +23,16 @@
 - 원문 저장·조회는 AI의 실행 상태와 독립적이다. MySQL은 원본 저장소이고 Qdrant는 향후 재생성할 수 있는 인덱스로 사용한다.
 - Flyway V1 `records`, V2 `schedules`, V3 `tasks`·`task_transitions`를 사용한다. 로컬의 `[예시]`·`[예시 추이]` 데이터는 화면과 집계 연습용이다.
 - 현재 계약은 [API.md](API.md), 데이터 규칙은 [MINIMUM_DESIGN.md](MINIMUM_DESIGN.md)에 정리했다.
+- 구현된 MySQL 테이블과 관계는 [ERD.md](ERD.md)에 정리했다.
 
 ## 검증
 
+- 리뷰 준비로 일기 저장 주석을 다듬고 Spring Boot 진입점의 중복 주석을 정리했다. 주석과 문서 변경을 diff로 확인했다.
+
+- Windows TCP 예약 범위 `6307–6406`에 포함된 Qdrant 호스트 포트 `6333`을 `16333`으로 변경했다. Compose 내부 주소는 `http://qdrant:6333`이다. `docker compose up -d`로 6개 서비스가 기동했고 MySQL은 `Healthy`였다. Qdrant 준비 상태, 프론트 홈, 프론트를 경유한 기록 조회 API, FastAPI OpenAPI가 모두 HTTP 200을 반환했다.
+
+- 로컬 VS Code 작업 영역에서 전체 파일의 자동 줄바꿈을 켰다. 화면 너비에 맞춰 표시하는 설정이며 JSON 파싱으로 적용 값을 확인했다.
+- 코드 리뷰용 한국어 주석을 화면·API·서비스·DB 조회·AI 중계·검증 코드에 보강했다. 도넛 차트의 누적 비율, 조회 갱신, 서울 기준 날짜, 할 일 상태 이력과 집계 규칙을 코드 가까이에서 확인할 수 있다. 프론트 lint·build, 백엔드 H2 테스트·bootJar, 실행 검증 스크립트의 문법 검사와 `git diff --check`를 통과했다.
 - 화면 전환을 브라우저 방문 기록에 연결한 뒤 lint와 build를 통과했다. Edge 390px에서 일정 관리 진입, 새로고침, 홈으로 뒤로가기, 일정 관리로 앞으로가기, `#tasks` 직접 접속을 확인했다.
 - 두 주간 그래프의 합계가 Edge 1280px·390px에서 API 응답과 일치했다. 대시보드의 기한 경과 줄을 제거한 뒤 lint와 build를 통과했고, Edge 390px에서 두 합계와 해당 줄 제거를 확인했다.
 - 일정 관리 대시보드 배치 변경 후 lint와 build를 통과했다. Edge 1280px·390px에서 대시보드가 목록과 작성 폼 위에 배치되고 **내 일정, 지금은** 그래프가 대시보드 맨 앞에 표시되는지 확인했다.

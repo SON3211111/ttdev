@@ -109,6 +109,7 @@ export default function RecordCalendar({
     selectDate(`${next}-01`)
   }
 
+  // 달력에는 약속 요약만 있으므로 수정창을 열기 전에 장소와 메모를 포함한 상세를 가져옵니다.
   async function openSchedule(id: string) {
     setOpening(true)
     setDetailError(null)
@@ -145,6 +146,7 @@ export default function RecordCalendar({
         const date = `${month}-${String(index + 1).padStart(2, '0')}`
         const dayRecords = records.filter(item => item.recordDate === date)
         const dayTasks = tasks.filter(item => item.dueDate === date)
+        // 완료한 일도 마감일 칸에 남기고, 미완료 건수와 완료 건수는 따로 표시합니다.
         const completedTaskCount = dayTasks.filter(item => item.status === 'DONE').length
         const counts = [
           { kind: 'memo', label: '메모', count: dayRecords.filter(item => item.recordType === 'MEMO').length },

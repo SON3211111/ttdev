@@ -1,5 +1,6 @@
 import { apiRequest } from './request'
 import type { CalendarSchedule, Schedule, ScheduleInput, SchedulePage, ScheduleStatus } from '../types/schedule'
+// 홈의 예정 약속은 페이지 단위로, 캘린더의 약속은 월 단위로 조회합니다.
 export const schedulesApi = {
   month: (month: string, signal?: AbortSignal) =>
     apiRequest<CalendarSchedule[]>(`/api/calendar/schedules?${new URLSearchParams({ month })}`, { signal }),

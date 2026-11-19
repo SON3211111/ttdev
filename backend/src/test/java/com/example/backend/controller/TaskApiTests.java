@@ -11,6 +11,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// 할 일의 직접 상태 변경, 이력과 주간 집계 결과를 API 응답으로 확인합니다.
 class TaskApiTests {
     @LocalServerPort int port;
     final HttpClient http = HttpClient.newHttpClient();

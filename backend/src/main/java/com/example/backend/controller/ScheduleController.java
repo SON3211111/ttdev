@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.Set;
 
+// 약속 CRUD와 홈에서 쓰는 예정 약속 목록을 제공합니다.
 @RestController
 @RequestMapping("/api/schedules")
 public class ScheduleController {

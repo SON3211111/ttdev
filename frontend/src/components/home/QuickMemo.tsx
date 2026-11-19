@@ -29,6 +29,7 @@ export default function QuickMemo({ onSave, onWriteDiary, onClose, initialDate }
 
   // try: 저장을 시도, catch: 실패 안내, finally: 성공/실패와 상관없이 잠금을 풀어 다시 작성하게 합니다.
   // await onSave가 실패하면 setContent('')를 건너뛰므로 입력이 사라지지 않습니다.
+  // 메모 저장은 부모가 수행하며 이 폼은 입력값과 저장 결과를 관리합니다.
   async function save() {
     if (!canSave || submitting.current) return
     submitting.current = true

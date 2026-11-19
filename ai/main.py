@@ -58,6 +58,7 @@ async def generate(request: GenerateRequest):
 
             # 4xx/5xx 실패 응답이면 예외를 냅니다. 성공한 경우에만 JSON에서 답변을 꺼냅니다.
             response.raise_for_status()
+            # Ollama의 전체 응답에서 프론트에 필요한 모델 이름과 답변 본문만 전달합니다.
             result = response.json()
 
             return {

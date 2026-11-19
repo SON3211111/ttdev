@@ -5,6 +5,7 @@
  */
 package com.example.backend.exception;
 
+// 업무 규칙 위반에 HTTP 상태와 오류 코드, 해당하는 경우 입력 필드 이름을 담습니다.
 public class RecordException extends RuntimeException {
     private final int status;
     private final String code;

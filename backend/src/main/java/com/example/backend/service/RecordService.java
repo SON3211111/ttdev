@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 
+// 메모와 일기의 입력 검증 및 원문 저장을 담당합니다. 저장 과정에서 AI 서버를 호출하지 않습니다.
 @Service
 // 기본 메서드는 조회용입니다. 저장/수정/삭제 메서드에는 별도 @Transactional을 붙여 변경을 허용합니다.
 @Transactional(readOnly = true)
@@ -83,6 +84,7 @@ public class RecordService {
         return repository.findById(id).orElseThrow(() -> new RecordException(404, "RECORD_NOT_FOUND", "기록을 찾을 수 없습니다.", null));
     }
     private String normalizeTitle(String title) { return title == null || title.strip().isEmpty() ? null : title.strip(); }
+    // 메모의 제목 입력을 막고, 본문 줄바꿈을 통일한 뒤 길이와 서울 기준 날짜를 검사합니다.
     private String validate(String type, String title, String content, LocalDate date) {
         String heading = normalizeTitle(title);
         if ("MEMO".equals(type) && heading != null) throw RecordException.validation("title", "메모에는 제목을 입력하지 않습니다.");

@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 // H2로 HTTP 계약과 정렬을 검증합니다. 실제 MySQL 마이그레이션은 별도로 확인합니다.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// 약속 API의 등록과 변경 및 날짜별 조회 규칙을 검증합니다.
 class ScheduleApiTests {
     @LocalServerPort int port;
     final HttpClient http = HttpClient.newHttpClient();

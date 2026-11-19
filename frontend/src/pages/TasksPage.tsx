@@ -14,6 +14,7 @@ const filters = [
   { status: 'DONE', name: taskStatuses.DONE },
 ] as const
 
+// 사용자가 변경 이력을 펼칠 때 해당 할 일의 이력을 조회합니다.
 function History({ id, revision }: { id: string; revision: number }) {
   const [retry, setRetry] = useState(0)
   const result = useTaskQuery<TaskEvent[]>(`/api/tasks/${id}/history`, revision + retry)
@@ -49,6 +50,7 @@ export default function TasksPage({ selectedTask, onHome }: {
   const items = listing?.items ?? (data && 'id' in data ? [data] : [])
   const refresh = () => setRevision(current => current + 1)
 
+  // 등록·수정·상태 변경·삭제가 공유하는 처리 경로입니다. 저장 중 중복 요청을 막고 성공하면 목록과 집계를 다시 읽습니다.
   async function mutate(action: () => Promise<unknown>, message: string, newTask = false) {
     if (lock.current) return
     lock.current = true
@@ -75,6 +77,7 @@ export default function TasksPage({ selectedTask, onHome }: {
     setEditor({ task })
   }
 
+  // 특정 상태로 필터링 중이면 변경한 항목의 새 상태로 목록 필터를 옮깁니다.
   function selectStatus(task: Task, next: TaskStatus) {
     if (task.status === next) return
     void mutate(async () => {

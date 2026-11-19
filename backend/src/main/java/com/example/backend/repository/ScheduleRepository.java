@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 
+// 홈 예정 목록과 월간 달력에 필요한 약속 조회 조건을 정의합니다.
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     String DATE_ORDER = " ORDER BY s.scheduleDate ASC, CASE WHEN s.scheduleTime IS NULL THEN 1 ELSE 0 END ASC, s.scheduleTime ASC, s.id ASC";
 

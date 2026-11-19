@@ -43,6 +43,7 @@ public class Task {
         updatedAt = now;
     }
 
+    // 완료 상태일 때만 완료 시각과 서울 기준 완료 날짜를 유지합니다. 완료 날짜는 주간 집계에 쓰입니다.
     public void changeStatus(Status next, Instant now, LocalDate seoulDate) {
         status = next;
         completedAt = next == Status.DONE ? now : null;

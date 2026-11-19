@@ -11,6 +11,7 @@ export default function DiaryForm({ onClose, onSaved, initialDate }: Props) {
  const [busy, setBusy] = useState(false)
  const [error, setError] = useState('')
  const lock = useRef(false)
+ // 브라우저의 기본 폼 제출을 막고, API 저장이 성공하면 기록 날짜를 부모 컴포넌트에 전달합니다.
  async function save(event: React.FormEvent) {
   event.preventDefault()
   if (lock.current || !content.trim() || !date || date > dateString(new Date()) || date < '1000-01-01') return

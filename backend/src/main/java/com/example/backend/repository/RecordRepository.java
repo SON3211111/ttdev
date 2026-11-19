@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+// 기록 유형과 날짜 범위를 적용하는 목록과 캘린더 조회를 정의합니다.
 public interface RecordRepository extends JpaRepository<MemoryRecord, Long> {
     Page<MemoryRecord> findByRecordDateBetween(java.time.LocalDate start, java.time.LocalDate end, Pageable pageable);
     Page<MemoryRecord> findByRecordType(String recordType, Pageable pageable);

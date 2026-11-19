@@ -9,6 +9,7 @@ import useTaskQuery from '../tasks/useTaskQuery'
 import ScheduleEditor from './ScheduleEditor'
 import './UpcomingSchedules.css'
 
+// 백엔드가 반환한 7일 치 약속을 끝 페이지까지 모은 뒤 화면에서 할 일과 합칩니다.
 async function listSchedules(signal: AbortSignal) {
   const items: Schedule[] = []
   for (let page = 0; ; page++) {
@@ -44,6 +45,7 @@ export default function UpcomingSchedules({ sharedRevision, taskRevision, onChan
   const current = result?.key === key ? result : null
   const currentTasks = taskResult?.key === taskKey ? taskResult : null
   const summary = useTaskQuery<Dashboard>('/api/tasks/dashboard', revision + taskRevision)
+  // 약속 날짜와 할 일 마감일을 공통 date에 넣어 날짜순으로 표시합니다.
   const entries = [
     ...(current?.data ?? []).map(item => ({ kind: 'schedule' as const, date: item.scheduleDate, item })),
     ...(currentTasks?.data ?? []).map(item => ({ kind: 'task' as const, date: item.dueDate, item })),
@@ -60,6 +62,7 @@ export default function UpcomingSchedules({ sharedRevision, taskRevision, onChan
   }, [key])
   useEffect(() => {
     const controller = new AbortController()
+    // 오늘부터 6일 뒤까지 월 경계를 넘으면 두 달을 조회하고, 실제 표시 기간과 미완료 상태로 걸러냅니다.
     const months = firstMonth === lastMonth ? [firstMonth] : [firstMonth, lastMonth]
     Promise.all(months.map(month => tasksApi.month(month, controller.signal))).then(months => {
       if (controller.signal.aborted) return

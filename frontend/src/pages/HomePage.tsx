@@ -29,6 +29,7 @@ type Props = {
   taskHomeRevision: number
 }
 
+// 홈과 기록 목록에서 작성·상세 열기를 조정하고, 기록이나 약속이 바뀌면 관련 조회를 갱신합니다.
 export default function HomePage({ recordsOpen, onHomeSection, onOpenAiTest, onOpenTasks, onOpenTask, taskHomeRevision }: Props) {
   // useState는 화면이 기억할 값입니다. set으로 시작하는 함수를 호출하면 값이 바뀌고 화면도 다시 그려집니다.
   // page는 0부터 시작합니다. revision은 재조회가 필요할 때 올리는 숫자이며 기록의 버전 번호가 아닙니다.

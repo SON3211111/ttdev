@@ -14,6 +14,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
+// 달력에서 사용할 약속과 할 일의 월간 요약을 제공합니다. 기록은 별도 기록 목록 API로 조회합니다.
 @RestController
 public class CalendarController {
     private final ScheduleService schedules;

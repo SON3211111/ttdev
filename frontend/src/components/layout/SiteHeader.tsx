@@ -11,6 +11,7 @@ type Props = {
   busy?: boolean
 }
 
+// 홈 섹션 이동과 별도 화면 전환을 부모 콜백으로 연결합니다.
 export default function SiteHeader({ onNavigate, onOpenTasks, onHomeSection, tasksActive, recordsActive, busy }: Props) {
   const homeActive = !tasksActive && !recordsActive
   function navigateHome(event: MouseEvent<HTMLAnchorElement>, section: string) {

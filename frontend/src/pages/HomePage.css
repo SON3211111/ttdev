@@ -72,6 +72,7 @@
   --journal-meta-size: 12px;
   padding-top: 34px;
 }
+/* 작성 영역은 두 열을 모두 쓰고, 그 아래에 기록과 예정 일정 영역을 나란히 배치합니다. */
 .journal-grid {
   grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr);
   grid-template-areas: "writing writing" "records agenda";

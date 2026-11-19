@@ -40,6 +40,7 @@ export default function RecordDetail({ id, onClose, onChanged }: Props) {
     return () => controller.abort()
   }, [id, revision])
 
+  // 수정 요청이 성공한 뒤 부모 화면에 알려 목록과 캘린더를 다시 조회하도록 합니다.
   async function save() {
     if (submitting.current || !content.trim() || content.trim().length > 10000 || date < '1000-01-01' || date > dateString(new Date())) return
     submitting.current = true

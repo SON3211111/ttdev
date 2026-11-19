@@ -21,6 +21,7 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Map;
 
+// 백엔드에서 FastAPI로 생성 요청을 중계합니다. 기록 저장 서비스와 별도 경로로 실행됩니다.
 @Service
 public class AiService {
 

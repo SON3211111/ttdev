@@ -16,6 +16,7 @@ export default function ScheduleEditor({ schedule, initialDate, onClose, onSaved
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const lock = useRef(false)
+  // 새 약속과 기존 약속의 저장 경로를 나누고 성공 결과를 부모 화면에 전달합니다.
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (lock.current || !title.trim() || !date) return

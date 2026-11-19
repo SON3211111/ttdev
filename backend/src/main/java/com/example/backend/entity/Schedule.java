@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.*;
 
 // 일정 원본입니다. 기록과 독립적으로 저장하며 AI 호출이나 상태 자동 변경은 없습니다.
+// 약속 날짜와 선택 시간은 달력에 표시할 값이고, 작성·수정 시각은 절대 시각으로 저장합니다.
 @Entity
 @Table(name = "schedules")
 public class Schedule {

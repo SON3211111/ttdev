@@ -24,6 +24,7 @@ export type RecordSummary = {
   updatedAt: string
 }
 // Omit은 기존 타입에서 필드를 빼는 문법입니다. 목록의 preview를 빼고 상세의 content를 추가합니다.
+// 상세 응답에는 목록의 미리보기 대신 전체 본문이 들어갑니다.
 export type RecordDetail = Omit<RecordSummary, 'preview'> & { content: string }
 export type RecordPage = {
   items: RecordSummary[]

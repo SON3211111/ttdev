@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import com.example.backend.entity.Task.Status;
 import java.time.Instant;
 
+// 상태 변경 당시의 이전 상태, 새 상태, 시각을 할 일 ID와 함께 저장합니다.
 @Entity
 @Table(name = "task_transitions")
 public class TaskTransition {

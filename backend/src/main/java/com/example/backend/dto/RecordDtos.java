@@ -29,6 +29,7 @@ public final class RecordDtos {
                     record.getEmbeddingStatus(), record.getIndexedVersion(), record.getCreatedAt(), record.getUpdatedAt());
         }
     }
+    // 목록에서는 본문 전체 대신 미리보기를 내려줍니다.
     public record Item(String id, String recordType, String title, String preview, LocalDate recordDate,
                        long contentVersion, String embeddingStatus, Long indexedVersion,
                        Instant createdAt, Instant updatedAt) {

@@ -7,6 +7,7 @@ import com.example.backend.entity.TaskTransition;
 import java.time.*;
 import java.util.List;
 
+// 목록·상세, 캘린더, 이력, 집계에 필요한 필드를 각각의 응답 형태로 만듭니다.
 public final class TaskDtos {
     private TaskDtos() {}
 
