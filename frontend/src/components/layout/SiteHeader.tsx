@@ -22,7 +22,7 @@ export default function SiteHeader({ onNavigate, onOpenTasks, onHomeSection, tas
   return (
     <header className="site-header">
       <a href="#home" className="brand" onClick={event => navigateHome(event, 'home')}>
-        <span className="brand-mark" aria-hidden="true">나</span>나의 하루
+        <span className="brand-mark" aria-hidden="true" />나의 하루
       </a>
       <nav aria-label="주 메뉴">
         <a className={homeActive ? 'active' : undefined} href="#home" aria-current={homeActive ? 'page' : undefined}
