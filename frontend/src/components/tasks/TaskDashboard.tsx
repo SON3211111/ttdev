@@ -58,8 +58,8 @@ export default function TaskDashboard({ revision, onRetry }: { revision: number;
     {result?.error && <p role="alert">{result.error} <button onClick={onRetry}>집계 다시 조회</button></p>}
     {data && <>
       <StatusChart total={data.total} doing={data.doing} done={data.done} />
-      <DayChart title="일주일 안에 끝낼 일" days={data.upcomingDue ?? []} upcoming />
-      <DayChart title="지난 일주일에 끝낸 일" days={data.trend} />
+      <DayChart title="남은 일정" days={data.upcomingDue ?? []} upcoming />
+      <DayChart title="지난 일정" days={data.trend} />
     </>}
   </section>
 }
