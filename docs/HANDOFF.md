@@ -1,6 +1,6 @@
 # 나의 하루 인수인계
 
-최종 갱신: 2026-11-19 (Asia/Seoul)
+최종 갱신: 2026-11-20 (Asia/Seoul)
 
 ## 현재 상태
 
@@ -28,6 +28,10 @@
 - 구현된 MySQL 테이블과 관계는 [ERD.md](ERD.md)에 정리했다.
 
 ## 검증
+
+- 포트 변경 후 현재 상태를 재확인했다. 6개 컨테이너가 실행 중이고 MySQL은 `healthy`였다. 프론트 홈, 프론트 경유 및 백엔드 직접 기록 조회, FastAPI `/health`, Qdrant `/readyz`, Ollama `/api/tags`가 모두 HTTP 200을 반환했다.
+
+- Windows TCP 예약 범위 `7945–8044`, `8054–8153`에 포함된 AI·백엔드 호스트 포트 `8000`, `8080`을 각각 `18000`, `18080`으로 변경했다. Compose 내부 포트는 AI `8000`, 백엔드 `8080`이다. `docker compose config --quiet`와 `docker compose up -d`가 성공했고 6개 컨테이너의 실행 및 MySQL `healthy`를 확인했다. 프론트 홈, 프론트 경유 및 백엔드 직접 기록 조회, FastAPI `/health`, Qdrant `/readyz`는 HTTP 200을 반환했다.
 
 - 홈 로고의 아이콘 안에 있던 글자를 제거했다.
 

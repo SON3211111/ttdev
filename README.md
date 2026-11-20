@@ -19,7 +19,7 @@ docker compose ps
 
 이미 .env가 있으면 복사로 덮어쓰지 말고 기존 설정을 사용합니다. 기존 MySQL 볼륨이 있으면 초기 비밀번호를 바꾸는 것만으로 DB 계정 비밀번호가 변경되지 않습니다.
 
-브라우저에서 http://localhost:5173 을 엽니다. 백엔드는 8080, AI 서버는 8000 포트를 사용합니다. MySQL은 Compose 설정상 localhost:5506이며 실제 실행 포트는 docker compose ps로 확인합니다. 기본 스택은 React/TypeScript/Vite, Java 17/Spring Boot/JPA/Flyway, MySQL 8, FastAPI, Ollama, Qdrant입니다.
+브라우저에서 http://localhost:5173 을 엽니다. 호스트에서 백엔드는 `127.0.0.1:18080`, AI 서버는 `127.0.0.1:18000`으로 접속합니다. Compose 내부 주소는 각각 `http://backend:8080`, `http://ai:8000`입니다. MySQL은 Compose 설정상 localhost:5506이며 실제 실행 포트는 `docker compose ps`로 확인합니다. 기본 스택은 React/TypeScript/Vite, Java 17/Spring Boot/JPA/Flyway, MySQL 8, FastAPI, Ollama, Qdrant입니다.
 
 Qdrant 대시보드는 http://127.0.0.1:16333/dashboard 에서 열 수 있습니다. Compose 내부에서 AI 서버는 `http://qdrant:6333`으로 접속합니다.
 

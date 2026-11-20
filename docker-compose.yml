@@ -35,7 +35,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       AI_SERVER_URL: http://ai:8000
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:18080:8080"
     depends_on:
       mysql:
         condition: service_healthy
@@ -72,7 +72,7 @@ services:
       EMBEDDING_MODEL: bge-m3
       QDRANT_URL: http://qdrant:6333
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:18000:8000"
     depends_on:
       - ollama
       - qdrant

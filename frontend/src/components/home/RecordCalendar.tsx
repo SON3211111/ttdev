@@ -185,7 +185,7 @@ export default function RecordCalendar({
             onSelect(item.id)
           }}>
             <span className={item.recordType === 'MEMO' ? 'calendar-memo' : 'calendar-diary'}>{item.recordType === 'MEMO' ? '메모' : '일기'}</span>
-            <span>{item.title || item.preview}</span><span aria-hidden="true">↗</span>
+            <span>{item.title || item.preview}</span><span aria-hidden="true"></span>
           </button>)}
           {dateSchedules.map(item => <button className="calendar-entry" key={`schedule-${item.id}`} disabled={editorOpen} onClick={() => void openSchedule(item.id)}>
             <span className="calendar-schedule">약속</span>
