@@ -215,8 +215,9 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
               <span className={`sw-stat-icon sw-stat-${color}`}><Icon size={21} /></span>
               <span><span className="sw-stat-label">{name}</span><strong>{count}<small>건</small></strong><span className="sw-stat-link">자세히 보기 ›</span></span>
             </button>)}</div>
+            {/* 업무 목록을 불러오는 중에도 새 업무 등록은 바로 열립니다(저장하면 목록에 추가되고 다시 읽음). */}
             <CalendarView cursor={cursor} setCursor={setCursor} mode={mode} setMode={setMode} tasks={filtered} open={open} today={todayDate} readOnly={viewOnly} create={date => {
-              if (tasks && !viewOnly) setDrawer({ date })
+              if (!viewOnly) setDrawer({ date })
             }} />
             <BottomWidgets today={today} notifications={notifications} overdue={overdue} open={open} toggle={toggle} navigate={changeView} canEdit={canEdit} pendingId={pendingTask} />
           </>}

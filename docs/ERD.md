@@ -77,6 +77,6 @@ erDiagram
 - [팀 접근](../backend-next/team-schema.sql)은 팀원, 세션과 일회용 초대를 저장한다. 세션과 초대 링크의 토큰은 해시로 저장한다.
 - [팀 업무](../backend-next/team-work.sql)는 시작일·마감일, 등록자·현재 담당자, 상태와 원본 견적을 연결한다.
 - [주간보고](../backend-next/team-reports.sql)는 월요일·작성자·보고 종류를 키로 사용한다. 개인 보고를 제출하면 당시 완료·예정 업무를 함께 저장한다.
-- [조직](../backend-next/db.mjs)의 `teams`는 팀 이름·유형(SALES·DEV·SUPPORT)·근무지·정렬 순서를 저장하고, 처음 실행할 때 7개 팀을 넣는다. `team_users.role`은 LEAD·MEMBER이고 모든 사용자가 `team_id`를 가진다. 관리자는 `is_admin` 권한이고, 직급은 `title`(대표·본부장·팀장·프로)이다. 팀장은 팀마다 1명(필터 고유 인덱스 `team_lead_per_team`)이다. 예전 ADMIN 역할 계정은 마이그레이션에서 기술영업 1팀 소속 관리자로 바뀌고, 관리자가 없으면 기존 팀장에게 관리자 권한을 준다. 대표·본부장은 필터 고유 인덱스(`team_users_unique_title`)로 회사 전체에 각각 1명이다. 팀장 직급은 팀장 권한(LEAD)과 같고, 필터 고유 인덱스(`team_users_one_lead_title`)로 부서마다 1명이다.
+- [조직](../backend-next/db.mjs)의 `teams`는 팀 이름·유형(SALES 기술·DEV 개발·TECH 연구·SUPPORT 경영, 괄호는 화면 표기)·근무지·정렬 순서를 저장하고, 처음 실행할 때 7개 팀을 넣는다. `team_users.role`은 LEAD·MEMBER이고 모든 사용자가 `team_id`를 가진다. 관리자는 `is_admin` 권한이고, 직급은 `title`(대표·본부장·팀장·프로)이다. 팀장은 팀마다 1명(필터 고유 인덱스 `team_lead_per_team`)이다. 예전 ADMIN 역할 계정은 마이그레이션에서 기술영업 1팀 소속 관리자로 바뀌고, 관리자가 없으면 기존 팀장에게 관리자 권한을 준다. 대표·본부장은 필터 고유 인덱스(`team_users_unique_title`)로 회사 전체에 각각 1명이다. 팀장 직급은 팀장 권한(LEAD)과 같고, 필터 고유 인덱스(`team_users_one_lead_title`)로 부서마다 1명이다.
 - 팀 업무는 `team_id`(팀 업무) 또는 `personal_owner_id`(개인 업무) 중 하나만 가진다. 회의 보고서 키는 (`team_id`, 날짜, 종류)이고, 주간보고·초대도 `team_id`를 저장한다. 초대는 역할(LEAD·MEMBER)을 함께 저장한다.
 - 조직 구조 이전의 단일 팀 데이터(사용자·팀 업무·회의·보고서·초대)는 마이그레이션에서 기술영업 1팀으로 옮긴다.

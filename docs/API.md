@@ -101,10 +101,10 @@
 | `GET /api/team/reports/{월요일}` | 내 보고, 게시된 팀 보고, 팀장용 개인 제출 현황 |
 | `PUT /api/team/reports/{월요일}/{personal,team}` | 초안 저장·제출. 팀 보고는 팀장만 작성 |
 
-팀 업무·대시보드·회의·보고·구성원은 요청한 사용자의 팀으로 범위가 제한된다. 관리자와 대표·본부장은 `?team=ID`로 다른 팀을 조회만 할 수 있고(그 외 403, 다른 팀 변경 요청도 403), 다른 팀 업무 ID는 404다. 업무 배정과 담당자 변경은 팀장만, 같은 팀 사람에게만 가능하다. 팀 목록(`GET /api/team/teams`)은 팀별 오늘·기한 초과 업무 수(`todayCount`, `overdueCount`)를 함께 준다.
+팀 업무·대시보드·회의·보고·구성원은 요청한 사용자의 팀으로 범위가 제한된다. 관리자와 팀장 이상(팀장·본부장·대표)은 `?team=ID`로 다른 팀을 조회만 할 수 있고(그 외 403, 다른 팀 변경 요청도 403), 다른 팀 업무 ID는 404다. 업무 배정과 담당자 변경은 팀장만, 같은 팀 사람에게만 가능하다. 팀 목록(`GET /api/team/teams`)은 팀별 오늘·기한 초과 업무 수(`todayCount`, `overdueCount`)를 함께 준다.
 
 - `/api/team/personal/work`와 `/api/team/personal/dashboard`는 현재 사용자 개인 공간을 조회한다. 개인 업무의 상세 조회와 변경도 같은 `personal/work` 경로를 쓰며, 팀 업무와 다른 사용자의 개인 업무 ID는 404로 처리한다.
 - `GET/PUT /api/team/meetings/{daily|weekly}/{날짜}`는 안건·결정·후속 업무를 조회하거나 저장한다. 주간회의는 월요일을 기준으로 한다. 기존 회의 보고는 작성자와 팀장이 수정할 수 있다.
 - `GET /api/team/work?scope=all`은 팀 공유 업무를 반환한다. 업무 저장 시 `time`, `alerts`, `repeat`를 지정할 수 있으며, 기존 호출에서 생략하면 수정 시 기존 값을 유지한다. `alerts`는 `90일 전`, `30일 전`, `7일 전`, `3일 전`, `1일 전`, `당일` 중에서 고른다.
-- 업무 `category`는 팀 유형을 따른다. 영업형 `QUOTE`·`DELIVERY`·`MEETING`·`OTHER`, 개발형 `DEVELOP`·`TEST`·`FIELD`·`MEETING`·`OTHER`, 지원형 `PURCHASE`·`APPROVAL`·`HR`·`ACCOUNTING`·`OTHER`. 개인 공간은 본인 팀의 유형(관리자는 지원형)을 따른다. 유형에 맞지 않는 구분은 400이며, 이미 저장된 구분은 그대로 수정할 수 있다.
+- 업무 `category`는 팀 유형을 따른다. 영업형 `QUOTE`·`DELIVERY`·`MEETING`·`OTHER`, 개발형·연구형(`TECH`, 기업부설연구소) `DEVELOP`·`TEST`·`FIELD`·`MEETING`·`OTHER`, 지원형 `PURCHASE`·`APPROVAL`·`HR`·`ACCOUNTING`·`OTHER`. 개인 공간은 본인 팀의 유형(관리자는 지원형)을 따른다. 유형에 맞지 않는 구분은 400이며, 이미 저장된 구분은 그대로 수정할 수 있다.
 - `GET /api/team/meetings/{daily|weekly}/{날짜}/work`는 보고서에 연결할 팀 업무를 반환한다. 보고서에 `workIds`와 `action`을 보내 초안 저장·상신할 수 있다. 상신 이후 내용은 잠기고 팀장만 결재할 수 있다.

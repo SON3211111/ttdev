@@ -348,3 +348,9 @@ button.sw-stat:hover { border-color: #bfdbfe; }
 .sw-tile-stats .sw-tile-late { color: #be123c; font-weight: 700; }
 .sw-warn { display: inline-flex; align-items: center; gap: 3px; color: #b45309; font-weight: 600; }
 .sw-team-tile button { justify-self: start; }
+.sw-team-tile-own { border-color: #bfdbfe; background: #eff6ff; }
+.sw-team-tile strong .sw-active-chip { margin-left: 6px; vertical-align: middle; }
+/* 카드 전체 클릭 */
+.sw-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.sw-clickable:hover { border-color: #93c5fd; box-shadow: 0 6px 18px #1d4ed81f; transform: translateY(-1px); }
+.sw-clickable:focus-visible { outline: 2px solid var(--sw-primary); outline-offset: 3px; }

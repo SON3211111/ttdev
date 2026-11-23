@@ -14,6 +14,7 @@ export const smartViews = new Set<string>(['portal', 'calendar', 'clients', 'rep
 export const categoriesByKind: Record<TeamKind, Category[]> = {
   SALES: ['estimate', 'meeting', 'delivery', 'etc'],
   DEV: ['develop', 'test', 'field', 'meeting', 'etc'],
+  TECH: ['develop', 'test', 'field', 'meeting', 'etc'],
   SUPPORT: ['purchase', 'approval', 'hr', 'accounting', 'etc'],
 }
 const labels: Record<Category, string> = {

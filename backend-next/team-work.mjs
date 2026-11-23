@@ -6,6 +6,7 @@ import { ApiError, body, calendarMonth, choice, date, invalid, queryKeys, seoulT
 export const categoriesByKind = {
   SALES: ['QUOTE', 'DELIVERY', 'MEETING', 'OTHER'],
   DEV: ['DEVELOP', 'TEST', 'FIELD', 'MEETING', 'OTHER'],
+  TECH: ['DEVELOP', 'TEST', 'FIELD', 'MEETING', 'OTHER'],
   SUPPORT: ['PURCHASE', 'APPROVAL', 'HR', 'ACCOUNTING', 'OTHER'],
 }
 const categories = [...new Set(Object.values(categoriesByKind).flat())]

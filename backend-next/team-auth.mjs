@@ -75,9 +75,9 @@ export function requireAdmin(user) {
   if (!user.isAdmin) throw new ApiError(403, 'FORBIDDEN', '관리자 권한이 필요합니다.')
 }
 
-// 직급은 본인이 고르는 표시용입니다. 대표·본부장과 관리자는 모든 팀을 읽기 전용으로 볼 수 있습니다.
+// 직급은 본인이 고르는 표시용입니다. 관리자와 팀장 이상(팀장·본부장·대표)은 모든 팀을 읽기 전용으로 볼 수 있습니다.
 export const titles = ['대표', '본부장', '팀장', '프로']
-export const canViewAll = user => !!user.isAdmin || ['대표', '본부장'].includes(user.title)
+export const canViewAll = user => !!user.isAdmin || user.role === 'LEAD' || ['대표', '본부장', '팀장'].includes(user.title)
 
 // 대표·본부장은 회사 전체에 각각 1명만 둘 수 있습니다. exceptId는 직급을 바꾸는 본인을 제외할 때 씁니다.
 export const uniqueTitles = ['대표', '본부장']

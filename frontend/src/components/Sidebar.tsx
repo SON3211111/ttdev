@@ -1,10 +1,10 @@
-import { Bell, Building2, CalendarDays, CircleAlert, CircleCheck, ClipboardList, Clock3, Settings, X } from 'lucide-react'
+import { Bell, Building2, CalendarDays, CircleAlert, CircleCheck, ClipboardList, Clock3, LayoutGrid, Settings, X } from 'lucide-react'
 import { Brand } from './TopHeader'
 import type { View } from './smartwork-data'
 import type { Team } from '../api/team'
 
 const links = [
-  ['calendar', '캘린더', CalendarDays], ['today', '오늘의 업무', Clock3], ['notifications', '알림', Bell],
+  ['workspace', '워크스페이스', LayoutGrid], ['calendar', '캘린더', CalendarDays], ['today', '오늘의 업무', Clock3], ['notifications', '알림', Bell],
   ['overdue', '지연 업무', CircleAlert], ['completed', '완료 업무', CircleCheck], ['clients', '업체 관리', Building2],
   ['reports', '회의·보고서', ClipboardList], ['settings', '설정', Settings],
 ] as const

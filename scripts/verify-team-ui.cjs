@@ -50,9 +50,9 @@ async function main() {
     assert.equal(await lead.getByLabel('직급', { exact: true }).inputValue(), '팀장')
     assert.equal(await lead.getByLabel('직급', { exact: true }).isDisabled(), true)
     await lead.getByRole('button', { name: '팀에 참여하기' }).click()
-    // 워크스페이스 선택 화면(팀 공간 바로가기 / 개인 공간 입장하기)으로 이동해 공간을 엽니다.
+    // 워크스페이스 선택 화면에서 카드(내 팀 공간 / 개인 공간)를 눌러 공간을 엽니다.
     async function workspace(page, name) {
-      const target = name.includes('개인') ? '개인 공간 입장하기' : '팀 공간 바로가기'
+      const target = name.includes('개인') ? '개인 공간 열기' : '내 팀 공간 열기'
       const chooser = page.getByRole('heading', { name: '접속할 워크스페이스를 선택하세요' })
       await chooser.or(page.locator('.sw-profile summary')).or(page.getByRole('button', { name: '워크스페이스', exact: true })).first().waitFor()
       if (await chooser.count() === 0) {
@@ -64,7 +64,7 @@ async function main() {
           await page.getByRole('button', { name: '워크스페이스', exact: true }).click()
         }
       }
-      await page.getByRole('button', { name: target }).click()
+      await page.getByRole('button', { name: target, exact: true }).click()
     }
     // 와이어프레임처럼 워크스페이스 화면의 새 팀원 초대 버튼으로 바로 초대합니다.
     await lead.getByRole('button', { name: '워크스페이스', exact: true }).click()
@@ -75,7 +75,9 @@ async function main() {
     await invite.waitFor()
     const memberInviteUrl = await invite.inputValue()
     await lead.getByRole('region', { name: '초대 수락 대기' }).getByText('member-ui@example.test').waitFor()
-    await lead.getByRole('button', { name: '팀 공간 바로가기' }).click()
+    // 팀장은 전체 팀 현황(조회 전용)도 봅니다. 내 팀 카드를 눌러 팀 공간으로 이동합니다.
+    await lead.getByRole('region', { name: /전체 팀 현황/ }).getByRole('button', { name: '기술영업 2팀 보기', exact: true }).waitFor()
+    await lead.getByRole('button', { name: '내 팀 공간 열기', exact: true }).click()
     await member.goto(home)
     await member.getByRole('button', { name: '워크스페이스', exact: true }).click()
     await member.getByRole('button', { name: '초대받아 가입' }).click()

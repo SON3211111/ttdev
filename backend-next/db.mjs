@@ -70,7 +70,7 @@ async function migrateOrganization(tx) {
     CREATE TABLE dbo.teams (
       id int IDENTITY PRIMARY KEY,
       name nvarchar(60) NOT NULL CONSTRAINT teams_name_unique UNIQUE,
-      kind varchar(10) NOT NULL CONSTRAINT teams_kind_check CHECK (kind IN ('SALES','DEV','SUPPORT')),
+      kind varchar(10) NOT NULL CONSTRAINT teams_kind_check CHECK (kind IN ('SALES','DEV','TECH','SUPPORT')),
       location nvarchar(20) NOT NULL,
       sort_order int NOT NULL
     );
@@ -78,7 +78,7 @@ async function migrateOrganization(tx) {
       (N'기술영업 1팀','SALES',N'대구 본사',10), (N'기술영업 2팀','SALES',N'대구 본사',20),
       (N'기술영업팀(서울지사)','SALES',N'서울지사',30), (N'솔루션개발 1팀','DEV',N'대구 본사',40),
       (N'솔루션개발 2팀','DEV',N'대구 본사',50), (N'경영지원팀','SUPPORT',N'대구 본사',60),
-      (N'기업부설연구소','DEV',N'대구 본사',70);
+      (N'기업부설연구소','TECH',N'대구 본사',70);
   END`)
   for (const table of ['team_users', 'team_work', 'team_meetings', 'team_reports', 'team_invites']) {
     await tx.request().batch(`IF COL_LENGTH('dbo.${table}','team_id') IS NULL ALTER TABLE dbo.${table} ADD team_id int NULL`)
@@ -153,6 +153,13 @@ async function migrateOrganization(tx) {
     UPDATE dbo.team_users SET title=N'팀장' WHERE role='LEAD';
     UPDATE dbo.team_users SET title=N'프로' WHERE role<>'LEAD' AND title=N'팀장';
     CREATE UNIQUE INDEX team_users_one_lead_title ON dbo.team_users(team_id) WHERE title=N'팀장';
+  END`)
+  // 팀 유형에 '기술'(TECH)을 더하고 기업부설연구소를 기술 유형으로 옮깁니다(업무 구분은 개발 유형과 같음).
+  await tx.request().batch(`IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='teams_kind_check' AND definition NOT LIKE '%TECH%')
+  BEGIN
+    ALTER TABLE dbo.teams DROP CONSTRAINT teams_kind_check;
+    ALTER TABLE dbo.teams ADD CONSTRAINT teams_kind_check CHECK (kind IN ('SALES','DEV','TECH','SUPPORT'));
+    UPDATE dbo.teams SET kind='TECH' WHERE name=N'기업부설연구소' AND kind='DEV';
   END`)
 }
 

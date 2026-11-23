@@ -2,7 +2,7 @@ import { query, transaction } from './db.mjs'
 import { assertTitleAvailable, requireAdmin, titles } from './team-auth.mjs'
 import { ApiError, body, choice, invalid, seoulToday, text, validate } from './validation.mjs'
 
-const kinds = ['SALES', 'DEV', 'SUPPORT']
+const kinds = ['SALES', 'DEV', 'TECH', 'SUPPORT']
 const teamColumns = `t.id,t.name,t.kind,t.location,
   (SELECT TOP 1 name FROM team_users l WHERE l.team_id=t.id AND l.role='LEAD') AS leadName,
   (SELECT COUNT(*) FROM team_users m WHERE m.team_id=t.id) AS memberCount,

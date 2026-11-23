@@ -214,11 +214,16 @@ console.log('PASS admin as team lead, read-only view of other teams, team manage
 // 직급은 표시용이지만 대표·본부장은 다른 팀을 읽기 전용으로 봅니다. 프로·팀장은 자기 팀만 봅니다.
 assert.ok((await request('work?scope=all&team=' + salesTwo.id, 200, { cookie: member.cookie })).data.every(item => item.id !== current.id))
 await request('work?team=' + salesTwo.id, 403, { method: 'POST', value: workInput, cookie: member.cookie })
-await request('work?scope=all&team=' + salesTwo.id, 403, { cookie: lead.cookie })
-await request('members?team=' + supportTeam.id, 403, { cookie: lead.cookie })
+// 팀장도 다른 팀을 읽기 전용으로 봅니다. 프로(팀원 권한·관리자 아님)는 자기 팀만 봅니다.
+await request('work?scope=all&team=' + salesTwo.id, 200, { cookie: lead.cookie })
+await request('work?team=' + salesTwo.id, 403, { method: 'POST', value: workInput, cookie: lead.cookie })
+assert.deepEqual((await request('members?team=' + supportTeam.id, 200, { cookie: lead.cookie })).data.map(item => item.name), ['관리자'])
+assert.equal((await request('auth/session', 200, { cookie: otherLead.cookie })).data.user.title, '프로')
+await request('work?scope=all&team=' + salesOne.id, 403, { cookie: otherLead.cookie })
+await request('members?team=' + salesOne.id, 403, { cookie: otherLead.cookie })
 assert.deepEqual((await request('members?team=' + supportTeam.id, 200, { cookie: member.cookie })).data.map(item => item.name), ['관리자'])
 await request('work?scope=all', 200, { cookie: member.cookie })
-console.log('PASS title-based read-only access for executives')
+console.log('PASS read-only access to other teams for admin, 팀장, 본부장, 대표 and none for 프로')
 
 // 대표·본부장은 회사 전체에 각각 1명입니다. 이미 있으면 가입·직급 변경 모두 거절하고, 실패한 가입은 초대를 소모하지 않습니다.
 assert.deepEqual((await request('auth/session', 200)).data.takenTitles, ['본부장'])
@@ -264,6 +269,14 @@ await post('work', 400, { ...workInput, category: 'QUOTE' }, devLead.cookie)
 await post('work', 400, { ...workInput, category: 'DEVELOP' }, lead.cookie)
 await post('personal/work', 201, { ...workInput, category: 'TEST' }, devLead.cookie)
 await post('personal/work', 400, { ...workInput, category: 'TEST' }, member.cookie)
+// 기업부설연구소는 기술 유형이며 업무 구분은 개발 유형과 같습니다.
+const researchTeam = teamList.find(team => team.name === '기업부설연구소')
+assert.equal(researchTeam.kind, 'TECH')
+const researchInvite = await post('auth/invite', 201, { email: 'research-lead@example.test', teamId: researchTeam.id, role: 'LEAD' }, admin.cookie)
+const researchLead = await post('auth/accept', 200, { token: researchInvite.data.token, name: '연구소 팀장', password })
+assert.equal(researchLead.data.user.teamKind, 'TECH')
+await post('work', 201, { ...workInput, category: 'TEST', company: null }, researchLead.cookie)
+await post('work', 400, { ...workInput, category: 'QUOTE' }, researchLead.cookie)
 console.log('PASS team kind categories for team and personal work')
 
 // 알림 시점은 90일 전(장기 일정)부터 당일까지 고를 수 있습니다.
