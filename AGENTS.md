@@ -6,6 +6,7 @@
 2. `docs/PROJECT_PLAN.md` — 팀 업무 공유 기획과 로드맵
 3. `docs/업무관리캘린더/업무관리 캘린더 요구사항.md` — 업무 캘린더 세부 요구사항
 4. `docs/REMAINING_WORK.md` — 남은 업무, 먼저 정할 것, 추천 순서
+5. `docs/PERMISSIONS.md` — 직급별 권한(목표)과 지금 구현과의 차이
 
 ## 작업 원칙
 
