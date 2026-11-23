@@ -5,6 +5,7 @@
 1. `docs/HANDOFF.md` — 사용자와 합의한 현재 상태, 범위, 다음 작업
 2. `docs/PROJECT_PLAN.md` — 팀 업무 공유 기획과 로드맵
 3. `docs/업무관리캘린더/업무관리 캘린더 요구사항.md` — 업무 캘린더 세부 요구사항
+4. `docs/REMAINING_WORK.md` — 남은 업무, 먼저 정할 것, 추천 순서
 
 ## 작업 원칙
 
