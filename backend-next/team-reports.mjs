@@ -24,19 +24,20 @@ async function weekWork(db, week, userId, team) {
   return { completed: completed.map(summary), upcoming: upcoming.map(summary) }
 }
 
-// 보고서는 팀 단위입니다. 관리자는 선택한 팀의 게시된 팀 보고만 읽습니다.
+// 보고서는 팀 단위입니다. 다른 팀을 조회(관리자·대표·본부장)할 때는 그 팀의 게시된 팀 보고만 읽습니다.
 async function readReports(db, week, user, team) {
-  const own = user.id
-  const lead = user.role === 'LEAD' ? 1 : 0
+  const self = user.id
+  const own = team === user.teamId
+  const lead = own && user.role === 'LEAD' ? 1 : 0
   const rows = await query(db, `SELECT ${columns},r.kind FROM team_reports r JOIN team_users u ON u.id=r.user_id
     WHERE r.week_start=@week AND r.team_id=@team AND (
-      (r.kind='personal' AND (r.user_id=@own OR (@lead=1 AND r.submitted_at IS NOT NULL)))
+      (r.kind='personal' AND (r.user_id=@self OR (@lead=1 AND r.submitted_at IS NOT NULL)))
       OR (r.kind='team' AND (r.submitted_at IS NOT NULL OR @lead=1)))
-    ORDER BY u.name,u.id`, { week, own, lead, team })
-  const personal = reportView(rows.find(row => row.kind === 'personal' && row.userId === own))
+    ORDER BY u.name,u.id`, { week, self, lead, team })
+  const personal = own ? reportView(rows.find(row => row.kind === 'personal' && row.userId === self)) : null
   const teamReport = reportView(rows.find(row => row.kind === 'team'))
   const submissions = lead ? rows.filter(row => row.kind === 'personal' && row.submittedAt).map(reportView) : []
-  const work = personal?.work ?? (user.role === 'ADMIN' ? { completed: [], upcoming: [] } : await weekWork(db, week, own, team))
+  const work = personal?.work ?? (own ? await weekWork(db, week, self, team) : { completed: [], upcoming: [] })
   return Response.json({ personal, team: teamReport, submissions, ...work })
 }
 

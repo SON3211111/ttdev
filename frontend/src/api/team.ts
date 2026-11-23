@@ -1,17 +1,38 @@
 import { apiRequest } from './request'
 
-export type Role = 'ADMIN' | 'LEAD' | 'MEMBER'
+export type Role = 'LEAD' | 'MEMBER'
+export type Title = '대표' | '본부장' | '팀장' | '프로'
 export type TeamKind = 'SALES' | 'DEV' | 'SUPPORT'
-// 관리자(ADMIN)는 소속 팀이 없어서 teamId·teamName·teamKind가 null입니다.
-export type TeamUser = { id: number; name: string; email: string; role: Role; teamId: number | null; teamName: string | null; teamKind: TeamKind | null }
-export type TeamMember = Pick<TeamUser, 'id' | 'name' | 'role'> & { email?: string }
-export type TeamSession = { user: TeamUser | null; setupRequired: boolean }
-export type Team = { id: number; name: string; kind: TeamKind; location: string; leadName: string | null; memberCount: number }
+// 관리자는 별도 계정이 아니라 팀 구성원에게 주는 권한(isAdmin)입니다. 직급(title)은 가입할 때 본인이 고르는 표시용입니다.
+export type TeamUser = {
+  id: number; name: string; email: string; role: Role; isAdmin: boolean; title: Title
+  teamId: number; teamName: string; teamKind: TeamKind
+}
+export type TeamMember = Pick<TeamUser, 'id' | 'name' | 'role'> & { email?: string; title?: Title; isAdmin?: boolean }
+// setupRequired는 처음 설치(사용자 없음)이고, 이때 첫 사용자가 고를 팀 목록(teams)을 함께 받습니다.
+// takenTitles는 이미 사용 중인 대표·본부장입니다(회사 전체에 각각 1명).
+export type TeamSession = { user: TeamUser | null; setupRequired: boolean; teams?: { id: number; name: string }[]; takenTitles?: Title[] }
+export type Team = {
+  id: number; name: string; kind: TeamKind; location: string; leadName: string | null; memberCount: number
+  todayCount: number; overdueCount: number
+}
 
-export const roleLabels: Record<Role, string> = { ADMIN: '관리자', LEAD: '팀장', MEMBER: '팀원' }
+export const titles: Title[] = ['대표', '본부장', '팀장', '프로']
+export const uniqueTitles: Title[] = ['대표', '본부장']
+export const roleLabels: Record<Role, string> = { LEAD: '팀장', MEMBER: '팀원' }
 export const teamKindLabels: Record<TeamKind, string> = { SALES: '영업형', DEV: '개발형', SUPPORT: '지원형' }
 
-// 관리자는 팀이 없으므로 조회할 팀을 ?team=ID로 지정합니다. 팀원·팀장 요청에는 붙이지 않습니다.
+// 관리자와 대표·본부장은 다른 팀을 읽기 전용으로 볼 수 있습니다.
+export function canViewAll(user?: Pick<TeamUser, 'isAdmin' | 'title'> | null) {
+  return !!user && (user.isAdmin || user.title === '대표' || user.title === '본부장')
+}
+
+// 화면에 보여줄 직급 표기. 관리자 권한이 있으면 "(관리자)"를 붙입니다.
+export function titleLabel(user: { title?: Title; isAdmin?: boolean; role?: Role }) {
+  return (user.title ?? (user.role === 'LEAD' ? '팀장' : '프로')) + (user.isAdmin ? ' (관리자)' : '')
+}
+
+// 다른 팀을 조회할 때만 ?team=ID를 붙입니다. 자기 팀 요청에는 붙이지 않습니다.
 export function withTeam(path: string, teamId?: number | null) {
   return teamId ? path + (path.includes('?') ? '&' : '?') + 'team=' + teamId : path
 }

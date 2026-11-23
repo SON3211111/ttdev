@@ -3,7 +3,7 @@ import { records } from '../../../records.mjs'
 import { schedules, scheduleCalendar } from '../../../schedules.mjs'
 import { tasks, taskCalendar } from '../../../tasks.mjs'
 import { ApiError } from '../../../validation.mjs'
-import { auth, checkOrigin, requireUser } from '../../../team-auth.mjs'
+import { auth, canViewAll, checkOrigin, requireUser } from '../../../team-auth.mjs'
 import { teamDashboard, teamWork } from '../../../team-work.mjs'
 import { teamReports } from '../../../team-reports.mjs'
 import { teamMeetings } from '../../../team-meetings.mjs'
@@ -33,16 +33,16 @@ async function generate(request) {
   return Response.json(payload)
 }
 
-// 팀 데이터는 요청한 사용자의 팀으로 범위를 제한합니다. 관리자는 팀이 없으므로 ?team=ID로 고른 팀을 읽기만 합니다.
+// 팀 데이터는 기본으로 요청한 사용자의 팀으로 범위를 제한합니다.
+// ?team=ID로 다른 팀을 고르면 관리자·대표·본부장만, 읽기 전용으로 볼 수 있습니다.
 async function teamScope(db, request, user, search) {
-  if (user.role !== 'ADMIN') return user.teamId
   const value = search.get('team')
-  if (!/^\d+$/.test(value ?? '') || +value < 1 || +value > 2147483647) {
-    throw new ApiError(400, 'TEAM_REQUIRED', '조회할 팀을 선택해 주세요.', 'team')
-  }
+  if (value === null || value === String(user.teamId)) return user.teamId
+  if (!/^\d+$/.test(value) || +value < 1 || +value > 2147483647) throw new ApiError(400, 'INVALID_REQUEST', '팀을 확인해 주세요.', 'team')
+  if (!canViewAll(user)) throw new ApiError(403, 'FORBIDDEN', '다른 팀은 관리자·대표·본부장만 조회할 수 있습니다.')
   const [team] = await query(db, 'SELECT id FROM teams WHERE id=@id', { id: +value })
   if (!team) throw new ApiError(404, 'TEAM_NOT_FOUND', '팀을 찾을 수 없습니다.')
-  if (request.method !== 'GET') throw new ApiError(403, 'FORBIDDEN', '관리자는 팀 업무·회의·보고서를 조회만 할 수 있습니다.')
+  if (request.method !== 'GET') throw new ApiError(403, 'FORBIDDEN', '다른 팀의 업무·회의·보고서는 조회만 할 수 있습니다.')
   return +value
 }
 
@@ -65,7 +65,7 @@ async function teamRequest(db, request, [resource, ...path], search) {
   if (resource === 'meetings') return teamMeetings(db, request, path, user, team)
   if (resource === 'dashboard' && !path.length && request.method === 'GET') return teamDashboard(db, { team })
   if (resource === 'members' && !path.length && request.method === 'GET') {
-    return Response.json(await query(db, 'SELECT id,name,email,role FROM team_users WHERE team_id=@team ORDER BY name,id', { team }))
+    return Response.json(await query(db, 'SELECT id,name,email,role,title,is_admin AS isAdmin FROM team_users WHERE team_id=@team ORDER BY name,id', { team }))
   }
 }
 

@@ -326,3 +326,25 @@ button.sw-stat:hover { border-color: #bfdbfe; }
   .sw-space-stats { grid-template-columns: minmax(0, 1fr); }
   .sw-space-card { padding: 18px; }
 }
+.sw-admin-setup summary { cursor: pointer; color: #334155; font-weight: 700; }
+.sw-admin-setup summary small { margin-left: 6px; color: #94a3b8; font-weight: 500; }
+.sw-admin-setup[open] summary { margin-bottom: 10px; }
+/* 다른 팀 조회(읽기 전용) */
+.sw-readonly-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; color: #78350f; }
+.sw-readonly-banner b { padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; }
+.sw-readonly-banner button { margin-left: auto; }
+.sw-team-select { display: grid; gap: 4px; margin-top: 4px; padding: 6px 4px 2px; color: #94a3b8; font-size: 11px; font-weight: 600; }
+.sw-team-select select { width: 100%; min-height: 32px; padding: 4px 6px; border: 1px solid #334155; border-radius: 7px; background: #0f172a; color: #e2e8f0; font-size: 12px; }
+/* 전체 팀 현황 (관리자·대표·본부장) */
+.sw-all-teams { padding: 20px; }
+.sw-all-teams h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 17px; }
+.sw-all-teams h2 small { color: #64748b; font-size: 12px; font-weight: 500; }
+.sw-all-teams ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.sw-team-tile { display: grid; gap: 6px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+.sw-team-tile strong { display: block; color: #0f172a; font-size: 15px; }
+.sw-team-tile small { color: #64748b; font-size: 12px; }
+.sw-team-tile p { margin: 0; color: #475569; font-size: 13px; }
+.sw-tile-stats { display: flex; gap: 10px; }
+.sw-tile-stats .sw-tile-late { color: #be123c; font-weight: 700; }
+.sw-warn { display: inline-flex; align-items: center; gap: 3px; color: #b45309; font-weight: 600; }
+.sw-team-tile button { justify-self: start; }

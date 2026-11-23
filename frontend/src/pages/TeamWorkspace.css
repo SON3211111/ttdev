@@ -98,3 +98,5 @@ body:has(.ttech-shell) { background: var(--sw-canvas); }
 .ttech-table .ttech-inline-form { margin-top: 0; }
 .ttech-link { color: var(--sw-primary); font-weight: 600; }
 .ttech-link:hover { text-decoration: underline; }
+.ttech-inline-form label.ttech-check { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; min-height: 34px; font-size: 13px; color: #0f172a; }
+.ttech-invite-info { margin: 0; padding: 10px 12px; border-radius: 8px; background: #eff6ff; color: #1e3a8a; font-size: 14px; }

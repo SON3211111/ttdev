@@ -20,22 +20,32 @@ async function request(path, expectedStatus, { cookie, method = 'GET', value } =
 }
 
 const post = (path, expectedStatus, value, cookie) => request(path, expectedStatus, { method: 'POST', value, cookie })
-// 처음 설치하면 관리자를 만들고, 관리자가 팀을 지정해 팀장을 초대합니다. 팀장은 자기 팀원을 초대합니다.
-assert.equal((await request('auth/session', 200)).data.setupRequired, true)
-const admin = await post('auth/setup', 200, { email: 'admin@example.test', name: '관리자', password })
-assert.equal(admin.data.user.role, 'ADMIN')
-assert.equal(admin.data.user.teamId, null)
-await post('auth/setup', 409, { email: 'admin2@example.test', name: '관리자 다시 설정', password })
-assert.equal((await request('auth/session', 200)).data.setupRequired, false)
+// 처음 설치: 첫 사용자가 소속 팀과 직급을 골라 관리자 겸 팀장이 됩니다(관리자 겸직). 이후에는 초대로만 가입합니다.
+const firstSession = (await request('auth/session', 200)).data
+assert.equal(firstSession.setupRequired, true)
+assert.deepEqual(firstSession.teams.map(team => team.name), ['기술영업 1팀', '기술영업 2팀', '기술영업팀(서울지사)', '솔루션개발 1팀', '솔루션개발 2팀', '경영지원팀', '기업부설연구소'])
+const supportTeam = firstSession.teams.find(team => team.name === '경영지원팀')
+await post('auth/setup', 400, { email: 'admin@example.test', name: '관리자', password, teamId: supportTeam.id, title: '이사' })
+const admin = await post('auth/setup', 200, { email: 'admin@example.test', name: '관리자', password, teamId: supportTeam.id, title: '팀장' })
+assert.equal(admin.data.user.role, 'LEAD')
+assert.equal(admin.data.user.isAdmin, true)
+assert.equal(admin.data.user.title, '팀장')
+assert.equal(admin.data.user.teamName, '경영지원팀')
+await post('auth/setup', 409, { email: 'admin2@example.test', name: '관리자 다시 설정', password, teamId: supportTeam.id })
+const laterSession = (await request('auth/session', 200)).data
+assert.equal(laterSession.setupRequired, false)
+assert.equal(laterSession.teams, undefined)
 const teamList = (await request('teams', 200, { cookie: admin.cookie })).data
-assert.deepEqual(teamList.map(team => team.name), ['기술영업 1팀', '기술영업 2팀', '기술영업팀(서울지사)', '솔루션개발 1팀', '솔루션개발 2팀', '경영지원팀', '기업부설연구소'])
 const [salesOne, salesTwo] = teamList
 await post('auth/invite', 401, { email: memberEmail })
-await post('auth/invite', 400, { email: leadEmail, role: 'LEAD' }, admin.cookie)
+await post('auth/invite', 409, { email: leadEmail, role: 'LEAD' }, admin.cookie)
 const leadInvite = await post('auth/invite', 201, { email: leadEmail, teamId: salesOne.id, role: 'LEAD' }, admin.cookie)
 assert.equal(leadInvite.data.expiresInDays, 7)
-const lead = await post('auth/accept', 200, { token: leadInvite.data.token, name: '팀장', password })
+await post('auth/accept', 400, { token: leadInvite.data.token, name: '팀장', password, title: '사장' })
+const lead = await post('auth/accept', 200, { token: leadInvite.data.token, name: '팀장', password, title: '팀장' })
 assert.equal(lead.data.user.role, 'LEAD')
+assert.equal(lead.data.user.isAdmin, false)
+assert.equal(lead.data.user.title, '팀장')
 assert.equal(lead.data.user.teamName, '기술영업 1팀')
 await post('auth/invite', 409, { email: 'lead-two@example.test', teamId: salesOne.id, role: 'LEAD' }, admin.cookie)
 await post('auth/invite', 403, { email: 'outsider@example.test', teamId: salesTwo.id }, lead.cookie)
@@ -46,6 +56,7 @@ async function inviteMember(email, name) {
   const payload = { token: invite.data.token, name, password }
   const member = await post('auth/accept', 200, payload)
   assert.equal(member.data.user.role, 'MEMBER')
+  assert.equal(member.data.user.title, '프로')
   assert.equal(member.data.user.teamId, salesOne.id)
   await post('auth/accept', 400, payload)
   return member
@@ -170,8 +181,10 @@ await post('work', 400, { ...workInput, assigneeId: member.data.user.id }, other
 await request('work/' + current.id, 400, { method: 'PUT', value: { ...workInput, assigneeId: otherLead.data.user.id }, cookie: lead.cookie })
 console.log('PASS team isolation for work, meetings, reports, dashboard, members and assignment')
 
-// 관리자는 ?team=으로 고른 팀을 읽기만 하고, 팀 정보·팀장 지정·팀 이동을 관리합니다.
-await request('work?scope=all', 400, { cookie: admin.cookie })
+// 관리자는 자기 팀(경영지원팀)에서는 팀장이고, 다른 팀은 ?team=으로 읽기만 합니다. 팀 정보·팀장 지정·팀 이동·직급·관리자 권한을 관리합니다.
+assert.ok(!(await request('work?scope=all', 200, { cookie: admin.cookie })).data.some(item => item.id === current.id))
+const adminOwn = (await post('work', 201, { ...workInput, category: 'PURCHASE', company: null }, admin.cookie)).data
+assert.equal(adminOwn.category, 'PURCHASE')
 assert.ok((await request('work?scope=all&team=' + salesOne.id, 200, { cookie: admin.cookie })).data.some(item => item.id === current.id))
 assert.equal((await request(meetingPath + '?team=' + salesOne.id, 200, { cookie: admin.cookie })).data.approvalStatus, 'APPROVED')
 assert.equal((await request(reportsPath + '?team=' + salesOne.id, 200, { cookie: admin.cookie })).data.team.accomplishments, report.accomplishments)
@@ -186,11 +199,59 @@ const moved = (await request('users/' + observer.data.user.id, 200, { method: 'P
 assert.equal(moved.teamName, '기술영업 2팀')
 const accounts = (await request('users', 200, { cookie: admin.cookie })).data
 assert.equal(accounts.find(item => item.id === otherLead.data.user.id).role, 'MEMBER')
+assert.equal(accounts.find(item => item.id === otherLead.data.user.id).title, '프로')
 assert.equal(accounts.find(item => item.id === observer.data.user.id).role, 'LEAD')
-await request('users/' + admin.data.user.id, 409, { method: 'PUT', value: { teamId: salesOne.id, role: 'MEMBER' }, cookie: admin.cookie })
+assert.equal(accounts.find(item => item.id === observer.data.user.id).title, '팀장')
+await request('users/' + admin.data.user.id, 409, { method: 'PUT', value: { teamId: supportTeam.id, role: 'LEAD', isAdmin: false }, cookie: admin.cookie })
+const titled = (await request('users/' + member.data.user.id, 200, { method: 'PUT', value: { teamId: salesOne.id, role: 'MEMBER', title: '본부장' }, cookie: admin.cookie })).data
+assert.equal(titled.title, '본부장')
+assert.equal(titled.isAdmin, false)
+await request('users/' + lead.data.user.id, 403, { method: 'PUT', value: { teamId: salesOne.id, role: 'LEAD' }, cookie: member.cookie })
 assert.ok(!(await request('work?scope=all', 200, { cookie: observer.cookie })).data.some(item => item.id === current.id))
 assert.equal((await request('auth/session', 200, { cookie: observer.cookie })).data.user.teamName, '기술영업 2팀')
-console.log('PASS admin read-only team view, team management, lead assignment and team moves')
+console.log('PASS admin as team lead, read-only view of other teams, team management, lead assignment, titles and last-admin guard')
+
+// 직급은 표시용이지만 대표·본부장은 다른 팀을 읽기 전용으로 봅니다. 프로·팀장은 자기 팀만 봅니다.
+assert.ok((await request('work?scope=all&team=' + salesTwo.id, 200, { cookie: member.cookie })).data.every(item => item.id !== current.id))
+await request('work?team=' + salesTwo.id, 403, { method: 'POST', value: workInput, cookie: member.cookie })
+await request('work?scope=all&team=' + salesTwo.id, 403, { cookie: lead.cookie })
+await request('members?team=' + supportTeam.id, 403, { cookie: lead.cookie })
+assert.deepEqual((await request('members?team=' + supportTeam.id, 200, { cookie: member.cookie })).data.map(item => item.name), ['관리자'])
+await request('work?scope=all', 200, { cookie: member.cookie })
+console.log('PASS title-based read-only access for executives')
+
+// 대표·본부장은 회사 전체에 각각 1명입니다. 이미 있으면 가입·직급 변경 모두 거절하고, 실패한 가입은 초대를 소모하지 않습니다.
+assert.deepEqual((await request('auth/session', 200)).data.takenTitles, ['본부장'])
+const execInvite = await post('auth/invite', 201, { email: 'ceo@example.test' }, lead.cookie)
+await post('auth/accept', 409, { token: execInvite.data.token, name: '두 번째 본부장', password, title: '본부장' })
+const ceo = await post('auth/accept', 200, { token: execInvite.data.token, name: '대표', password, title: '대표' })
+assert.equal(ceo.data.user.title, '대표')
+assert.deepEqual((await request('auth/session', 200)).data.takenTitles.sort(), ['대표', '본부장'].sort())
+const secondInvite = await post('auth/invite', 201, { email: 'ceo-two@example.test' }, lead.cookie)
+await post('auth/accept', 409, { token: secondInvite.data.token, name: '두 번째 대표', password, title: '대표' })
+await request('users/' + otherLead.data.user.id, 409, { method: 'PUT', value: { teamId: salesTwo.id, role: 'MEMBER', title: '대표' }, cookie: admin.cookie })
+assert.equal((await request('users/' + ceo.data.user.id, 200, { method: 'PUT', value: { teamId: salesOne.id, role: 'MEMBER', title: '대표' }, cookie: admin.cookie })).data.title, '대표')
+console.log('PASS one 대표 and one 본부장 across the company')
+
+// '팀장' 직급은 팀장 권한과 같고 부서마다 1명입니다. 초대 정보로 어느 팀에 어떤 자리인지 보여줍니다.
+const seoulTeam = teamList.find(team => team.name === '기술영업팀(서울지사)')
+const seoulInvite = await post('auth/invite', 201, { email: 'seoul-lead@example.test', teamId: seoulTeam.id, role: 'LEAD' }, admin.cookie)
+assert.deepEqual((await request('auth/invite?token=' + seoulInvite.data.token, 200)).data, { email: 'seoul-lead@example.test', role: 'LEAD', teamName: '기술영업팀(서울지사)' })
+await request('auth/invite?token=' + 'f'.repeat(64), 400)
+const seoulLead = await post('auth/accept', 200, { token: seoulInvite.data.token, name: '서울 팀장', password, title: '프로' })
+assert.equal(seoulLead.data.user.title, '팀장')
+assert.equal(seoulLead.data.user.role, 'LEAD')
+const proInvite = await post('auth/invite', 201, { email: 'pro-one@example.test' }, seoulLead.cookie)
+await post('auth/accept', 400, { token: proInvite.data.token, name: '팀장 희망', password, title: '팀장' })
+const pro = await post('auth/accept', 200, { token: proInvite.data.token, name: '서울 프로', password })
+assert.equal(pro.data.user.title, '프로')
+await request('users/' + pro.data.user.id, 400, { method: 'PUT', value: { teamId: seoulTeam.id, role: 'MEMBER', title: '팀장' }, cookie: admin.cookie })
+const promoted = (await request('users/' + pro.data.user.id, 200, { method: 'PUT', value: { teamId: seoulTeam.id, role: 'LEAD' }, cookie: admin.cookie })).data
+assert.equal(promoted.title, '팀장')
+const seoulMembers = (await request('members?team=' + seoulTeam.id, 200, { cookie: admin.cookie })).data
+assert.deepEqual(seoulMembers.filter(item => item.title === '팀장').map(item => item.name), ['서울 프로'])
+assert.equal(seoulMembers.find(item => item.name === '서울 팀장').title, '프로')
+console.log('PASS 팀장 title tied to lead role, one per department, invite info')
 
 // 팀 유형별 업무 구분: 개발형 팀은 개발·테스트 등을, 영업형 팀은 견적·납품 등을 씁니다.
 const devTeam = teamList.find(team => team.name === '솔루션개발 1팀')
@@ -219,8 +280,9 @@ const allInvites = (await request('auth/invites', 200, { cookie: admin.cookie })
 assert.ok(allInvites.some(item => item.email === 'pending-two@example.test' && item.teamName === '기술영업 2팀'))
 assert.ok(allInvites.some(item => item.email === 'pending-one@example.test'))
 const teamInvites = (await request('auth/invites', 200, { cookie: lead.cookie })).data
-assert.deepEqual(teamInvites.map(item => item.email), ['pending-one@example.test'])
+assert.ok(teamInvites.some(item => item.email === 'pending-one@example.test'))
+assert.ok(teamInvites.every(item => item.teamId === salesOne.id))
 await request('auth/invites', 403, { cookie: member.cookie })
 await post('auth/invite', 201, { email: 'pending-one@example.test' }, lead.cookie)
-assert.equal((await request('auth/invites', 200, { cookie: lead.cookie })).data.length, 1)
+assert.equal((await request('auth/invites', 200, { cookie: lead.cookie })).data.filter(item => item.email === 'pending-one@example.test').length, 1)
 console.log('PASS pending invite lists by role and resend')

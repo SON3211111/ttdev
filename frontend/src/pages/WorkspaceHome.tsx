@@ -1,29 +1,27 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ChevronRight, CircleHelp, EyeOff, Globe, Lock, ShieldCheck, UserPlus, Users } from 'lucide-react'
-import { roleLabels, teamGet, withTeam, type TeamMember, type TeamUser } from '../api/team'
-import { PendingInvites } from './TeamInvites'
+import { AlertTriangle, ArrowRight, ChevronRight, CircleHelp, EyeOff, Globe, Lock, ShieldCheck, UserPlus, Users } from 'lucide-react'
+import { canViewAll, teamGet, teamKindLabels, titleLabel, type Team, type TeamMember, type TeamUser } from '../api/team'
+import { PendingInvites, TeamInviteForm } from './TeamInvites'
 
 type Dashboard = { today: unknown[]; week: unknown[]; month: unknown[]; overdue: unknown[] }
 
-// 와이어프레임의 워크스페이스 선택 화면: 팀 공간과 개인 공간 카드(통계), 구성원, 작동 방식, 초대 대기.
-export default function WorkspaceHome({ user, teamId, teamName, members, openTeam, openPersonal, openSettings }: {
-  user: TeamUser; teamId?: number; teamName?: string; members: TeamMember[]
-  openTeam: () => void; openPersonal: () => void; openSettings: () => void
+// 와이어프레임의 워크스페이스 선택 화면: 내 팀 공간과 개인 공간 카드(통계), 구성원, 작동 방식, 초대 대기.
+// 관리자·대표·본부장에게는 아래에 '전체 팀 현황(조회 전용)'을 함께 보여줍니다.
+export default function WorkspaceHome({ user, teams, members, openTeam, openPersonal, openSettings }: {
+  user: TeamUser; teams: Team[]; members: TeamMember[]
+  openTeam: (id?: number) => void; openPersonal: () => void; openSettings: () => void
 }) {
   const [team, setTeam] = useState<Dashboard>()
   const [personal, setPersonal] = useState<Dashboard>()
-  const admin = user.role === 'ADMIN'
+  const [inviting, setInviting] = useState(false)
+  const [inviteVersion, setInviteVersion] = useState(0)
   const lead = members.find(member => member.role === 'LEAD')
-
-  useEffect(() => {
-    if (admin && !teamId) return
-    const controller = new AbortController()
-    teamGet<Dashboard>(withTeam('dashboard', teamId), controller.signal).then(setTeam).catch(() => undefined)
-    return () => controller.abort()
-  }, [admin, teamId])
+  const canInvite = user.isAdmin || user.role === 'LEAD'
+  const others = canViewAll(user) ? teams.filter(item => item.id !== user.teamId) : []
 
   useEffect(() => {
     const controller = new AbortController()
+    teamGet<Dashboard>('dashboard', controller.signal).then(setTeam).catch(() => undefined)
     teamGet<Dashboard>('personal/dashboard', controller.signal).then(setPersonal).catch(() => undefined)
     return () => controller.abort()
   }, [])
@@ -32,22 +30,24 @@ export default function WorkspaceHome({ user, teamId, teamName, members, openTea
   return <div className="sw-spaces">
     <header className="sw-spaces-head">
       <div>
-        <p className="sw-spaces-tag"><i aria-hidden="true" />{admin ? '워크스페이스 관리자 모드' : roleLabels[user.role]} <span>T&amp;T Workspace</span></p>
+        <p className="sw-spaces-tag"><i aria-hidden="true" />{user.isAdmin ? '워크스페이스 관리자 모드' : user.title} <span>T&amp;T Workspace</span></p>
         <h1 className="sw-page-title">접속할 워크스페이스를 선택하세요</h1>
         <p>팀 업무는 팀 캘린더와 회의·보고서에 함께 쓰이고, 개인 공간의 기록은 본인에게만 보입니다.</p>
       </div>
       <div className="sw-spaces-actions">
-        <span className="sw-role-chip"><ShieldCheck size={15} />{user.name} {user.teamName ? user.teamName + ' ' : ''}{roleLabels[user.role]}</span>
-        {user.role !== 'MEMBER' && <button type="button" className="sw-primary" onClick={openSettings}><UserPlus size={16} />{admin ? '조직 관리' : '새 팀원 초대'}</button>}
+        <span className="sw-role-chip"><ShieldCheck size={15} />{user.name} {titleLabel(user)}</span>
+        {user.isAdmin && <button type="button" className="sw-secondary" onClick={openSettings}>조직 관리</button>}
+        {canInvite && <button type="button" className="sw-primary" aria-expanded={inviting} onClick={() => setInviting(value => !value)}><UserPlus size={16} />새 팀원 초대</button>}
       </div>
     </header>
+    {inviting && canInvite && <TeamInviteForm user={user} onInvited={() => setInviteVersion(value => value + 1)} />}
 
     <div className="sw-space-cards">
       <article className="sw-card sw-space-card sw-space-team">
         <header><span className="sw-space-icon"><Users size={22} /></span>
-          <div><h2>{teamName ?? '팀 공간'} {!admin && <b className="sw-active-chip">현재 활성 공간</b>}</h2>
+          <div><h2>{user.teamName} <b className="sw-active-chip">내 팀</b></h2>
             <p>{lead ? `팀 리더: ${lead.name}` : '팀장 미지정'}{members.length > 1 ? ` 외 ${members.length - 1}명` : ''}</p></div>
-          <span className="sw-public-chip"><Globe size={13} />{admin ? '조회 전용' : '팀 공개'}</span>
+          <span className="sw-public-chip"><Globe size={13} />팀 공개</span>
         </header>
         <p className="sw-space-desc">팀 전체의 일정과 업무 진행 현황을 함께 관리합니다. 등록한 업무는 회의·주간 보고서에 연결됩니다.</p>
         <dl className="sw-space-stats">
@@ -57,7 +57,7 @@ export default function WorkspaceHome({ user, teamId, teamName, members, openTea
         </dl>
         <footer><span className="sw-avatars" aria-hidden="true">{members.slice(0, 3).map(member => <i key={member.id}>{member.name[0]}</i>)}
           {members.length > 3 && <i>+{members.length - 3}</i>}</span>
-          <button type="button" className="sw-primary" onClick={openTeam}>팀 공간 바로가기<ArrowRight size={16} /></button></footer>
+          <button type="button" className="sw-primary" onClick={() => openTeam()}>팀 공간 바로가기<ArrowRight size={16} /></button></footer>
       </article>
 
       <article className="sw-card sw-space-card sw-space-personal">
@@ -77,12 +77,24 @@ export default function WorkspaceHome({ user, teamId, teamName, members, openTea
       </article>
     </div>
 
+    {others.length > 0 && <section className="sw-card sw-all-teams" aria-labelledby="all-teams-title">
+      <h2 id="all-teams-title"><Globe size={18} />전체 팀 현황 <small>조회 전용 · {teams.length}개 팀</small></h2>
+      <ul>{others.map(item => <li key={item.id} className="sw-team-tile">
+        <div><strong>{item.name}</strong><small>{teamKindLabels[item.kind]} · {item.location}</small></div>
+        <p>{item.leadName ? `팀장 ${item.leadName}` : <span className="sw-warn"><AlertTriangle size={13} />팀장 미지정</span>} · {item.memberCount}명</p>
+        <p className="sw-tile-stats"><span>오늘 {item.todayCount}</span><span className={item.overdueCount ? 'sw-tile-late' : ''}>지연 {item.overdueCount}</span></p>
+        {!item.leadName && user.isAdmin
+          ? <button type="button" className="sw-secondary" onClick={openSettings} aria-label={item.name + ' 팀장 초대'}>팀장 초대</button>
+          : <button type="button" className="sw-secondary" onClick={() => openTeam(item.id)} aria-label={item.name + ' 보기'}>보기<ArrowRight size={14} /></button>}
+      </li>)}</ul>
+    </section>}
+
     <div className="sw-space-bottom">
       <section className="sw-card sw-members" aria-labelledby="space-members-title">
-        <h2 id="space-members-title"><Users size={18} />{teamName ?? '팀'} 구성원 ({members.length}명)<small>{admin ? '조직 관리에서 팀장 지정·팀 이동' : '팀장 권한: 초대 링크 발급'}</small></h2>
+        <h2 id="space-members-title"><Users size={18} />{user.teamName} 구성원 ({members.length}명)<small>{user.isAdmin ? '조직 관리에서 팀장 지정·팀 이동' : '팀장 권한: 초대 링크 발급'}</small></h2>
         <ul>{members.map(member => <li key={member.id} className={member.role === 'LEAD' ? 'sw-member-lead' : ''}>
           <span className="sw-avatar">{member.name[0]}</span>
-          <span><strong>{member.name} <b>{roleLabels[member.role]}</b></strong><small>{member.email}</small></span>
+          <span><strong>{member.name} <b>{titleLabel(member)}</b></strong><small>{member.email}</small></span>
         </li>)}</ul>
         {members.length === 0 && <p className="ttech-muted">아직 구성원이 없습니다.</p>}
       </section>
@@ -90,12 +102,12 @@ export default function WorkspaceHome({ user, teamId, teamName, members, openTea
         <section className="sw-card sw-howto" aria-labelledby="space-howto-title">
           <h2 id="space-howto-title"><CircleHelp size={18} />협업 워크스페이스 작동 방식</h2>
           <ol>
-            <li><strong>관리자·팀장 초대:</strong> 관리자가 팀을 지정해 팀장을 초대하고, 팀장은 자기 팀원을 초대합니다.</li>
-            <li><strong>링크로 가입:</strong> 받은 초대 링크(7일, 1회용)로 계정을 만들면 지정된 팀에 바로 배정됩니다.</li>
-            <li><strong>공간 분리:</strong> 팀 캘린더에서 협업하고, 개인 일정은 개인 공간에서 혼자 봅니다.</li>
+            <li><strong>초대:</strong> 관리자가 팀을 지정해 팀장·팀원을 초대하고, 팀장은 자기 팀원을 초대합니다.</li>
+            <li><strong>링크로 가입:</strong> 받은 초대 링크(7일, 1회용)로 계정을 만들면 지정된 팀에 바로 배정됩니다. 직급은 가입할 때 본인이 고릅니다.</li>
+            <li><strong>공간 분리:</strong> 팀 캘린더에서 협업하고, 개인 일정은 개인 공간에서 혼자 봅니다. 관리자·대표·본부장은 다른 팀을 조회할 수 있습니다.</li>
           </ol>
         </section>
-        {user.role !== 'MEMBER' && <PendingInvites admin={admin} />}
+        {canInvite && <PendingInvites admin={user.isAdmin} version={inviteVersion} />}
       </div>
     </div>
   </div>

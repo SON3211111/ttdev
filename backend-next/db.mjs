@@ -121,6 +121,39 @@ async function migrateOrganization(tx) {
     ALTER TABLE dbo.team_work ADD CONSTRAINT team_work_category CHECK (category IN
       ('QUOTE','DELIVERY','MEETING','OTHER','DEVELOP','TEST','FIELD','PURCHASE','APPROVAL','HR','ACCOUNTING'));
   END`)
+  // 관리자 겸직: 관리자는 팀에 속한 사용자에게 주는 권한(is_admin)입니다. 직급(title)은 대표·본부장·팀장·프로 중 본인이 고릅니다.
+  // 예전 ADMIN 역할 계정은 기술영업 1팀 소속 관리자로 바꾸고, 관리자가 없으면 기존 팀장(없으면 첫 사용자)에게 관리자 권한을 줍니다.
+  await tx.request().batch(`IF COL_LENGTH('dbo.team_users','is_admin') IS NULL
+    ALTER TABLE dbo.team_users ADD is_admin bit NOT NULL CONSTRAINT team_users_admin_default DEFAULT 0,
+      title nvarchar(10) NOT NULL CONSTRAINT team_users_title_default DEFAULT N'프로'
+      CONSTRAINT team_users_title_check CHECK (title IN (N'대표',N'본부장',N'팀장',N'프로'))`)
+  await tx.request().batch(`IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='team_users_role' AND parent_object_id=OBJECT_ID('dbo.team_users'))
+  BEGIN
+    DECLARE @first int = (SELECT id FROM dbo.teams WHERE sort_order=10);
+    ALTER TABLE dbo.team_users DROP CONSTRAINT team_users_role;
+    UPDATE dbo.team_users SET is_admin=1, role='MEMBER', team_id=COALESCE(team_id,@first) WHERE role='ADMIN';
+    UPDATE dbo.team_users SET title=N'팀장' WHERE role='LEAD';
+    ALTER TABLE dbo.team_users ADD CONSTRAINT team_users_member_role CHECK (role IN ('LEAD','MEMBER') AND team_id IS NOT NULL);
+    IF NOT EXISTS (SELECT 1 FROM dbo.team_users WHERE is_admin=1)
+      UPDATE dbo.team_users SET is_admin=1 WHERE id=(SELECT TOP 1 u.id FROM dbo.team_users u JOIN dbo.teams t ON t.id=u.team_id
+        ORDER BY CASE WHEN u.role='LEAD' THEN 0 ELSE 1 END, t.sort_order, u.id);
+  END`)
+  // 대표·본부장은 회사 전체에 각각 1명입니다. 이미 중복이 있으면 먼저 가입한 1명만 남기고 나머지는 '프로'로 바꿉니다.
+  await tx.request().batch(`IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='team_users_unique_title' AND object_id=OBJECT_ID('dbo.team_users'))
+  BEGIN
+    UPDATE u SET title=N'프로' FROM dbo.team_users u
+      WHERE u.title IN (N'대표',N'본부장') AND EXISTS (SELECT 1 FROM dbo.team_users o WHERE o.title=u.title AND o.id<u.id);
+    CREATE UNIQUE INDEX team_users_unique_title ON dbo.team_users(title) WHERE title IN (N'대표',N'본부장');
+  END`)
+  // '팀장' 직급 = 팀장 권한, 부서마다 1명. 대표·본부장이면서 팀장 권한이던 계정은 팀원 권한으로, 팀장 권한인데 프로면 팀장으로,
+  // 팀원 권한인데 팀장 직급이면 프로로 맞춥니다.
+  await tx.request().batch(`IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='team_users_one_lead_title' AND object_id=OBJECT_ID('dbo.team_users'))
+  BEGIN
+    UPDATE dbo.team_users SET role='MEMBER' WHERE role='LEAD' AND title IN (N'대표',N'본부장');
+    UPDATE dbo.team_users SET title=N'팀장' WHERE role='LEAD';
+    UPDATE dbo.team_users SET title=N'프로' WHERE role<>'LEAD' AND title=N'팀장';
+    CREATE UNIQUE INDEX team_users_one_lead_title ON dbo.team_users(team_id) WHERE title=N'팀장';
+  END`)
 }
 
 export async function database() {

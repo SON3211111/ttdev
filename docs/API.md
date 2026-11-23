@@ -87,13 +87,13 @@
 
 | 경로 | 동작 |
 |---|---|
-| `GET /api/team/auth/session` | 현재 사용자(팀 ID·이름·유형 포함)와 관리자 설정 필요 여부(`setupRequired`) |
-| `POST /api/team/auth/{setup,login,logout}` | 관리자 계정 설정, 로그인, 로그아웃. 처음 설치 때는 누구나 한 번, 사용자가 이미 있는 기존 설치에서는 로그인한 팀장만 관리자를 만들 수 있고(201, 팀장 세션 유지) |
-| `POST /api/team/auth/{invite,accept}` | 7일 유효 1회용 초대 링크 발급, 링크로 계정 생성. 관리자는 `teamId`·`role`(LEAD·MEMBER)을 지정하고 팀장은 자기 팀 팀원만 초대 |
+| `GET /api/team/auth/session` | 현재 사용자(팀 ID·이름·유형, `isAdmin`, `title` 포함)와 처음 설치 여부(`setupRequired`: 사용자 0명). 처음 설치일 때는 고를 팀 목록(`teams`)도 준다. 사용 중인 대표·본부장 직급(`takenTitles`)도 준다 |
+| `POST /api/team/auth/{setup,login,logout}` | 처음 설정, 로그인, 로그아웃. 처음 설정(사용자 0명일 때만)은 `teamId`·`title`을 받아 관리자 계정을 만든다(직급이 팀장이면 그 팀 팀장도 맡음) |
+| `POST /api/team/auth/{invite,accept}` | 7일 유효 1회용 초대 링크 발급, 링크로 계정 생성. 관리자는 `teamId`(생략하면 자기 팀)·`role`(LEAD·MEMBER)을 지정하고, 팀장은 자기 팀 팀원만 초대한다. 수락할 때 `title`(대표·본부장·팀장·프로, 기본 프로)을 본인이 고른다. 대표·본부장은 회사 전체에 각각 1명이라 이미 있으면 409 `TITLE_TAKEN`(초대는 소모되지 않음). 팀장으로 초대받으면 직급은 팀장으로 정해지고, 팀원 초대에서 팀장을 고르면 400 `LEAD_TITLE`. `GET /api/team/auth/invite?token=`은 초대받은 이메일·팀 이름·역할을 보여준다 |
 | `GET /api/team/auth/invites` | 수락 대기 중인 유효한 초대(이메일·팀·역할·만료). 관리자는 전체, 팀장은 자기 팀. 같은 이메일로 다시 초대하면 이전 링크는 무효가 되고 1건만 남는다 |
 | `GET/POST /api/team/teams`, `PUT /api/team/teams/{id}` | 팀 목록(팀장 이름·인원 포함, 로그인 사용자 모두), 팀 추가·수정(관리자) |
-| `GET /api/team/users`, `PUT /api/team/users/{id}` | 관리자 전용 사용자 목록, 팀 이동·팀장 지정(`teamId`, `role`). 팀장을 지정하면 기존 팀장은 팀원이 된다 |
-| `GET /api/team/members` | 같은 팀 사용자 ID·이름·이메일·역할 |
+| `GET /api/team/users`, `PUT /api/team/users/{id}` | 관리자 전용 사용자 목록과 변경(`teamId`, `role`, 선택 `title`·`isAdmin`). 팀장을 지정하면 기존 팀장은 팀원이 되고, 마지막 관리자의 권한은 회수할 수 없다(409 `LAST_ADMIN`). 팀장 권한을 주면 직급도 팀장이 되고 기존 팀장은 팀원 권한·프로가 된다. 팀원 권한에 팀장 직급을 주면 400 |
+| `GET /api/team/members` | 같은 팀 사용자 ID·이름·이메일·역할·직급·관리자 여부 |
 | `GET/POST /api/team/work` | 월·담당자·유형·상태·검색어로 업무 조회, 업무 등록 |
 | `GET/PUT/DELETE /api/team/work/{id}` | 업무 조회와 담당자·팀장의 수정·삭제 |
 | `POST /api/team/work/{id}/delivery` | 완료한 견적에서 연결된 납품 업무 등록 |
@@ -101,7 +101,7 @@
 | `GET /api/team/reports/{월요일}` | 내 보고, 게시된 팀 보고, 팀장용 개인 제출 현황 |
 | `PUT /api/team/reports/{월요일}/{personal,team}` | 초안 저장·제출. 팀 보고는 팀장만 작성 |
 
-팀 업무·대시보드·회의·보고·구성원은 요청한 사용자의 팀으로 범위가 제한된다. 관리자는 팀이 없으므로 `?team=ID`로 팀을 골라 조회만 하고(없으면 400 `TEAM_REQUIRED`, 변경 요청은 403), 다른 팀 업무 ID는 404다. 업무 배정과 담당자 변경은 팀장만, 같은 팀 사람에게만 가능하다. 업무 기간과 주차 집계는 서울 날짜를 기준으로 한다.
+팀 업무·대시보드·회의·보고·구성원은 요청한 사용자의 팀으로 범위가 제한된다. 관리자와 대표·본부장은 `?team=ID`로 다른 팀을 조회만 할 수 있고(그 외 403, 다른 팀 변경 요청도 403), 다른 팀 업무 ID는 404다. 업무 배정과 담당자 변경은 팀장만, 같은 팀 사람에게만 가능하다. 팀 목록(`GET /api/team/teams`)은 팀별 오늘·기한 초과 업무 수(`todayCount`, `overdueCount`)를 함께 준다.
 
 - `/api/team/personal/work`와 `/api/team/personal/dashboard`는 현재 사용자 개인 공간을 조회한다. 개인 업무의 상세 조회와 변경도 같은 `personal/work` 경로를 쓰며, 팀 업무와 다른 사용자의 개인 업무 ID는 404로 처리한다.
 - `GET/PUT /api/team/meetings/{daily|weekly}/{날짜}`는 안건·결정·후속 업무를 조회하거나 저장한다. 주간회의는 월요일을 기준으로 한다. 기존 회의 보고는 작성자와 팀장이 수정할 수 있다.

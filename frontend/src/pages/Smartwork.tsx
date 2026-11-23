@@ -35,13 +35,13 @@ const statusToApi: Record<WorkStatus, string> = { 대기: 'WAITING', '진행 중
 const refreshInterval = 60_000
 const emptyFilters = { from: '', to: '', company: '', category: '', status: '' }
 
-// 관리자(readOnly)는 teams에서 고른 팀(teamId)을 읽기만 합니다. 팀원·팀장은 자기 팀(teamName)을 봅니다.
-// teamKind는 업무 구분 선택지와 라벨, 업체 관리 메뉴 표시를 정합니다.
+// 기본은 내 팀(teamName)입니다. 관리자·대표·본부장이 다른 팀을 고르면 teamId(?team=)로 그 팀을 읽기 전용(readOnly)으로 봅니다.
+// teams·ownTeamId·selectTeam은 사이드바의 팀 공간 전환에 씁니다. teamKind는 업무 구분 선택지와 라벨, 업체 관리 메뉴 표시를 정합니다.
 export default function Smartwork({ currentView, navigate, openWorkspace, switchWorkspace, user, members, logout, reports, personal = false,
-  teamName, teamId, teamKind = 'SALES', teams, selectTeam, readOnly = false, workspacePanel, settingsPanel }: {
+  teamName, teamId, teamKind = 'SALES', teams, ownTeamId, selectTeam, readOnly = false, workspacePanel, settingsPanel }: {
   currentView: View; navigate: (view: View) => void; openWorkspace: () => void; switchWorkspace: () => void; user?: TeamUser | null
   members: { id: number; name: string }[]; logout: () => void; reports: ReactNode; personal?: boolean
-  teamName?: string; teamId?: number; teamKind?: TeamKind; teams?: Team[]; selectTeam?: (id: number) => void; readOnly?: boolean
+  teamName?: string; teamId?: number; teamKind?: TeamKind; teams?: Team[]; ownTeamId?: number; selectTeam?: (id: number) => void; readOnly?: boolean
   workspacePanel?: ReactNode; settingsPanel?: ReactNode
 }) {
   const [tasks, setTasks] = useState<Task[]>()
@@ -70,7 +70,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
   // 다른 팀원이 바꾼 업무가 보이도록 화면에 돌아올 때와 1분마다 다시 읽습니다.
   // 새 요청은 이전 요청을 취소하므로, 저장 직후 늦게 도착한 이전 목록이 저장 결과를 덮어쓰지 않습니다.
   useEffect(() => {
-    if (!userId || (viewOnly && !teamId)) return
+    if (!userId) return
     let controller = new AbortController()
     const load = () => {
       controller.abort()
@@ -172,10 +172,11 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
     setFeedback((task.company || task.title) + ' 업무를 저장했습니다.')
   }
 
-  const spaceName = personal ? '개인 공간' : teamName ?? '팀 공간'
+  const spaceName = personal ? '개인 공간' : (teamName ?? '팀 공간') + (viewOnly ? ' (조회)' : '')
   return <KindContext.Provider value={teamKind}>
     <div className={`sw-system ${portal ? 'sw-system-portal' : 'sw-system-workspace'}${drawer ? ' sw-panel-open' : ''}`}>
-      {!portal && <Sidebar personal={personal} teamName={viewOnly ? '조회' : teamName} userName={user?.name} showClients={sales}
+      {!portal && <Sidebar personal={personal} teamName={teamName} userName={user?.name} showClients={sales}
+        teams={teams} currentTeamId={personal ? ownTeamId : teamId ?? ownTeamId} ownTeamId={ownTeamId} selectTeam={id => { setMenu(false); selectTeam?.(id) }}
         switchWorkspace={() => { setMenu(false); switchWorkspace() }} view={currentView} navigate={changeView}
         alerts={notifications.length} overdue={overdue.length} open={menu} close={() => setMenu(false)} />}
       <div className="sw-shell">
@@ -185,14 +186,11 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
           <span className="sr-only" role="status">{feedback}</span>
           {error && <p className="sw-error" role="alert">{error}</p>}
           {workViews && !tasks && !error && <p role="status">업무를 불러오는 중입니다…</p>}
+          {viewOnly && currentView !== 'workspace' && <p className="sw-readonly-banner"><b>읽기 전용</b>{teamName}을(를) 보고 있습니다.
+            {ownTeamId && <button type="button" className="sw-secondary" onClick={() => selectTeam?.(ownTeamId)}>내 팀으로 돌아가기</button>}</p>}
           {currentView === 'calendar' && <>
             <div className="sw-page-intro">{personal ? <><h1 className="sw-page-title">개인 워크스페이스</h1><span>{user?.name}님만 보는 업무 캘린더 · {todayDate}</span></>
               : <><h1 className="sw-page-title">{sales ? '영업 캘린더' : '업무 캘린더'}</h1><span>{teamName ?? '팀 워크스페이스'} · {todayDate}</span></>}
-              {viewOnly && teams && <label className="sw-assignee-filter">조회할 팀 <select aria-label="조회할 팀" value={teamId} onChange={event => {
-                setAssignee('')
-                setFilters(emptyFilters)
-                selectTeam?.(Number(event.target.value))
-              }}>{teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select><b className="sw-readonly">읽기 전용</b></label>}
               {!personal && <label className="sw-assignee-filter">담당자 <select aria-label="담당자" value={assignee} onChange={event => setAssignee(event.target.value)}>
                 <option value="">팀 전체</option>{user && <option value={user.id}>내 업무</option>}
                 {members.filter(member => member.id !== user?.id).map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
@@ -225,7 +223,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
           {currentView === 'clients' && sales && <ClientsView tasks={(tasks ?? []).filter(task => task.company)} search={search} />}
           {currentView === 'reports' && !personal && reports}
           {currentView === 'workspace' && workspacePanel}
-          {currentView === 'settings' && <section className="sw-card sw-module"><h1 className="sw-page-title">{user?.role === 'ADMIN' ? '조직 관리' : '설정'}</h1>
+          {currentView === 'settings' && <section className="sw-card sw-module"><h1 className="sw-page-title">{user?.isAdmin ? '조직 관리' : '설정'}</h1>
             {settingsPanel}
             <h2>사내 보안 지침</h2><p>고객사 정보와 업무보고는 사내 승인된 계정으로만 열람합니다.</p>
           </section>}

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { roleLabels, teamGet, teamWrite, type Role, type TeamUser } from '../api/team'
 
-type Invite = { email: string; role: Exclude<Role, 'ADMIN'>; teamId: number; teamName: string; expiresAt: string }
+type Invite = { email: string; role: Role; teamId: number; teamName: string; expiresAt: string }
 
 function inviteLink(token: string) {
   const url = new URL(location.pathname, location.origin)
@@ -63,58 +63,40 @@ export function PendingInvites({ admin, version = 0, heading }: { admin: boolean
 }
 
 // 팀장 설정 화면: 자기 팀 팀원 초대, 초대 대기 목록, (기존 설치에서 관리자가 없을 때) 관리자 계정 만들기.
-export default function TeamInvites({ user, setupRequired, signInFields, onAdminCreated }: {
-  user: TeamUser; setupRequired: boolean; signInFields: ReactNode; onAdminCreated: () => void
-}) {
+// 팀장의 자기 팀 팀원 초대 폼. 링크를 만들면 onInvited로 알려 초대 대기 목록을 새로 읽게 합니다.
+export function TeamInviteForm({ user, onInvited }: { user: TeamUser; onInvited: () => void }) {
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
-  const [version, setVersion] = useState(0)
-  const [adminEmail, setAdminEmail] = useState('')
-
-  async function run(action: () => Promise<void>) {
-    setPending(true)
-    setError('')
-    try { await action() } catch (error) { setError(message(error)) } finally { setPending(false) }
-  }
 
   function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const email = new FormData(event.currentTarget).get('email')
     setUrl('')
-    void run(async () => {
-      const { token } = await teamWrite<{ token: string }>('auth/invite', 'POST', { email })
+    setError('')
+    setPending(true)
+    teamWrite<{ token: string }>('auth/invite', 'POST', { email }).then(({ token }) => {
       setUrl(inviteLink(token))
-      setVersion(value => value + 1)
-    })
+      onInvited()
+    }).catch(error => setError(message(error))).finally(() => setPending(false))
   }
 
-  function createAdmin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const fields = Object.fromEntries(new FormData(event.currentTarget))
-    void run(async () => {
-      const result = await teamWrite<{ user: TeamUser }>('auth/setup', 'POST', fields)
-      setAdminEmail(result.user.email)
-      onAdminCreated()
-    })
-  }
-
-  return <div className="sw-settings-stack">
+  return <section className="sw-card sw-invites" aria-labelledby="team-invite-title">
+    <h2 id="team-invite-title">{user.teamName} 팀원 초대</h2>
     {error && <p role="alert" className="sw-error">{error}</p>}
-    {setupRequired && <section className="sw-card sw-invites" aria-labelledby="admin-setup-title">
-      <h2 id="admin-setup-title">관리자 계정 만들기</h2>
-      <p className="ttech-muted">아직 관리자 계정이 없습니다. 조직 관리를 맡을 관리자 계정을 만듭니다. 지금 로그인한 팀장 계정은 그대로 유지됩니다.</p>
-      <form onSubmit={createAdmin} className="ttech-form">{signInFields}<button type="submit" disabled={pending}>관리자 계정 만들기</button></form>
-    </section>}
-    {adminEmail && <p role="status">관리자 계정({adminEmail})을 만들었습니다.</p>}
-    <section className="sw-card sw-invites" aria-labelledby="team-invite-title">
-      <h2 id="team-invite-title">{user.teamName} 팀원 초대</h2>
-      <form onSubmit={invite} className="ttech-form">
-        <label>초대할 이메일<input name="email" type="email" required maxLength={254} /></label>
-        <button type="submit" disabled={pending}>초대 링크 만들기</button>
-      </form>
-      {url && <InviteLink url={url} />}
-    </section>
+    <form onSubmit={invite} className="ttech-form">
+      <label>초대할 이메일<input name="email" type="email" required maxLength={254} /></label>
+      <button type="submit" disabled={pending}>초대 링크 만들기</button>
+    </form>
+    {url && <InviteLink url={url} />}
+  </section>
+}
+
+// 팀장 설정 화면: 자기 팀 팀원 초대와 초대 대기 목록.
+export default function TeamInvites({ user }: { user: TeamUser }) {
+  const [version, setVersion] = useState(0)
+  return <div className="sw-settings-stack">
+    <TeamInviteForm user={user} onInvited={() => setVersion(value => value + 1)} />
     <PendingInvites admin={false} version={version} />
   </div>
 }
