@@ -17,7 +17,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[],page:0,size:5,totalElements:0,totalPages:0})});
  });
  try {
-  await page.goto('http://localhost:5173');
+  await page.goto('http://localhost:5173/#home');
   await page.locator('#memo').fill('보존할 메모 초안');
   await page.locator('.journal-composer').getByRole('button',{name:'일기 쓰기',exact:true}).click();
   const composer=page.locator('.diary-composer');

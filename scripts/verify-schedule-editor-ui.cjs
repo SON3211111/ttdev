@@ -15,7 +15,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
  });
  try {
-  await page.goto('http://localhost:5173');
+  await page.goto('http://localhost:5173/#home');
   const section=page.locator('#schedules'); const editor=section.locator('.schedule-editor');
   const add=section.getByRole('button',{name:'새로운 일정 추가',exact:false});
   await section.locator('button.event').filter({hasText:first.title}).click();

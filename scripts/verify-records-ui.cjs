@@ -22,7 +22,7 @@ async function until(check, label) {
   page.on('pageerror', error => errors.push(error.message));
   const marker = 'UI검증-' + Date.now();
   try {
-    await page.goto(base);
+    await page.goto(base + '/#home');
     await until(async()=>!(await page.getByText('기록을 불러오는 중입니다…').isVisible()), 'initial load');
     const input = page.locator('#memo');
     const date = page.locator('.memo input[type=date]');

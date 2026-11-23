@@ -1,2 +1,0 @@
-// Gradle이 이 프로젝트를 부를 이름입니다. 필요한 라이브러리와 빌드 방법은 build.gradle에 적습니다.
-rootProject.name = 'backend'

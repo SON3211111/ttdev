@@ -26,7 +26,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
  });
  page.on('pageerror', e => errors.push(e.message));
  try {
-  await page.goto('http://localhost:5173');
+  await page.goto('http://localhost:5173/#home');
   await page.locator('.journal-composer').getByRole('button', {name:'일기 쓰기', exact:true}).click();
   const form = page.locator('section').filter({has: page.locator('#diary-heading')});
   await form.getByLabel('제목 (선택)').fill(marker);

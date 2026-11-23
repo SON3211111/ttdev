@@ -29,7 +29,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
     });
   });
   try {
-    await page.goto('http://localhost:5173');
+    await page.goto('http://localhost:5173/#home');
     const records = page.locator('#records');
     const calendar = page.locator('#calendar');
     await page.getByRole('link', { name: '기록', exact: true }).click();

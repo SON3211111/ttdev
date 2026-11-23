@@ -1,6 +1,6 @@
 # 나의 하루 현재 API
 
-2026-11-18 기준 통합 캘린더와 개인 작업 관리까지 구현한 계약이다. 브라우저는 /api 프록시를 사용하며 백엔드는 localhost:8080에서 실행한다. 인증은 없는 로컬 단일 사용자 MVP다.
+통합 캘린더와 개인 작업 관리의 API 계약이다. 브라우저는 /api 프록시를 사용하며 Next.js 백엔드는 호스트 127.0.0.1:18080, Compose 내부 backend:8080에서 접근한다. 기존 개인 기능(`/api/records`, `/api/schedules`, `/api/tasks`, `/api/calendar`, `/api/ai`)도 팀 계정 로그인 세션이 필요하며, 로그인하지 않으면 `401 UNAUTHORIZED`를 반환한다. 데이터에는 소유자 구분이 없어 로그인한 팀원은 모두 같은 기존 기록을 본다. `/api/health`는 공개한다.
 
 ## 기록
 
@@ -12,7 +12,7 @@
 | PUT | /api/records/{id} | 제목·본문·날짜 전체 수정, 종류 변경 불가 |
 | DELETE | /api/records/{id} | 물리 삭제, 204 |
 
-등록: recordType(MEMO/DIARY), content, recordDate 필수. title은 일기만 선택이다. 수정은 content, recordDate와 선택 title을 받는다. 제목 최대 100자, 본문 최대 10,000 UTF-16 코드 단위, 공백 본문 거부, 기록 날짜는 서울 오늘까지 허용한다.
+등록: recordType(MEMO/DIARY), content, recordDate 필수. title은 일기만 선택이다. 수정은 content, recordDate와 선택 title을 받는다. 제목 최대 100자, 본문 최대 10,000 UTF-16 코드 단위, 공백 본문 거부, 기록 날짜는 서울 오늘까지 허용한다. 본문의 앞뒤 공백은 제거하고 내부 공백과 줄바꿈은 유지한다. 빈 일기 제목은 null로 처리하며 메모에 빈 값이 아닌 제목을 보내면 400을 반환한다.
 
 목록 조건: type 생략은 전체, MEMO/DIARY 지정 가능. page 기본 0, size 기본 20(1~100). 캘린더 start/end는 둘 다 지정하며 양끝 포함, type과 동시 사용 불가다. keyword/from/to는 제거했으므로 빈 값도 포함해 400이다. 정렬은 recordDate·createdAt·id 내림차순이며 임의 sort는 받지 않는다.
 
@@ -32,7 +32,7 @@
 
 목록은 서울 오늘~6일 후 PLANNED로 고정한다. page 기본 0, size 기본 20(1~100). start/end/status 조건은 제거했으며 빈 값도 400이다. 정렬은 날짜 오름차순 → 시간 있는 일정 먼저/시간 오름차순 → ID 오름차순이다.
 
-상세와 목록 항목은 id(문자열), title, scheduleDate, scheduleTime(HH:mm 또는 null), location, description, status, createdAt, updatedAt이다. 페이지 응답은 기록과 같다. 작성/수정 시각은 UTC이며 일정은 DB와 같은 마이크로초 정밀도다.
+상세와 목록 항목은 id(문자열), title, scheduleDate, scheduleTime(HH:mm 또는 null), location, description, status, createdAt, updatedAt이다. 페이지 응답은 기록과 같다. 작성/수정 시각은 밀리초 정밀도의 UTC다.
 
 ## 통합 캘린더
 
@@ -75,10 +75,36 @@
 | 503 | STORAGE_UNAVAILABLE | DB 연결/트랜잭션 시작 불가 |
 | 500 | INTERNAL_ERROR | 예상하지 못한 서버 오류 |
 
-미지원 JSON 필드는 거부한다. 날짜는 YYYY-MM-DD, 시각은 UTC ISO 8601 Z다. 수정 충돌 제어는 없으며 여러 탭에서는 마지막 저장이 반영된다. 원문 저장/조회는 AI를 호출하지 않는다.
+미지원 JSON 필드는 거부한다. 날짜는 YYYY-MM-DD이며 시간대 변환 없이 처리한다. 일정 시간은 서울 현지 시각 HH:mm이고 생성·수정 시각은 UTC ISO 8601 Z다. 수정 충돌 제어는 없으며 여러 탭에서는 마지막 저장이 반영된다. 원문 저장/조회는 AI를 호출하지 않는다.
 
 ## 아직 미구현인 서비스 API
 
 /api/ai/search와 /api/schedules/{id}/prepare는 후속 단계다. 기존 /api/ai/generate는 일반 생성 연결 테스트용이며 기록 기반 답변·출처를 제공하지 않는다. FastAPI /health 응답은 모델 준비나 AI 업무 기능 검증을 뜻하지 않는다.
 
-세부 데이터 정책은 [MINIMUM_DESIGN.md](MINIMUM_DESIGN.md), 검증 결과는 [STAGE4_CHECK.md](STAGE4_CHECK.md)를 참고한다.
+테이블과 저장 규칙은 [ERD.md](ERD.md), 검증 결과는 [HANDOFF.md](HANDOFF.md)를 참고한다.
+
+## t&tech 팀 API
+
+| 경로 | 동작 |
+|---|---|
+| `GET /api/team/auth/session` | 현재 사용자(팀 ID·이름·유형 포함)와 관리자 설정 필요 여부(`setupRequired`) |
+| `POST /api/team/auth/{setup,login,logout}` | 관리자 계정 설정, 로그인, 로그아웃. 처음 설치 때는 누구나 한 번, 사용자가 이미 있는 기존 설치에서는 로그인한 팀장만 관리자를 만들 수 있고(201, 팀장 세션 유지) |
+| `POST /api/team/auth/{invite,accept}` | 7일 유효 1회용 초대 링크 발급, 링크로 계정 생성. 관리자는 `teamId`·`role`(LEAD·MEMBER)을 지정하고 팀장은 자기 팀 팀원만 초대 |
+| `GET /api/team/auth/invites` | 수락 대기 중인 유효한 초대(이메일·팀·역할·만료). 관리자는 전체, 팀장은 자기 팀. 같은 이메일로 다시 초대하면 이전 링크는 무효가 되고 1건만 남는다 |
+| `GET/POST /api/team/teams`, `PUT /api/team/teams/{id}` | 팀 목록(팀장 이름·인원 포함, 로그인 사용자 모두), 팀 추가·수정(관리자) |
+| `GET /api/team/users`, `PUT /api/team/users/{id}` | 관리자 전용 사용자 목록, 팀 이동·팀장 지정(`teamId`, `role`). 팀장을 지정하면 기존 팀장은 팀원이 된다 |
+| `GET /api/team/members` | 같은 팀 사용자 ID·이름·이메일·역할 |
+| `GET/POST /api/team/work` | 월·담당자·유형·상태·검색어로 업무 조회, 업무 등록 |
+| `GET/PUT/DELETE /api/team/work/{id}` | 업무 조회와 담당자·팀장의 수정·삭제 |
+| `POST /api/team/work/{id}/delivery` | 완료한 견적에서 연결된 납품 업무 등록 |
+| `GET /api/team/dashboard` | 오늘·기한 초과·이번 주·이번 달 업무 목록 |
+| `GET /api/team/reports/{월요일}` | 내 보고, 게시된 팀 보고, 팀장용 개인 제출 현황 |
+| `PUT /api/team/reports/{월요일}/{personal,team}` | 초안 저장·제출. 팀 보고는 팀장만 작성 |
+
+팀 업무·대시보드·회의·보고·구성원은 요청한 사용자의 팀으로 범위가 제한된다. 관리자는 팀이 없으므로 `?team=ID`로 팀을 골라 조회만 하고(없으면 400 `TEAM_REQUIRED`, 변경 요청은 403), 다른 팀 업무 ID는 404다. 업무 배정과 담당자 변경은 팀장만, 같은 팀 사람에게만 가능하다. 업무 기간과 주차 집계는 서울 날짜를 기준으로 한다.
+
+- `/api/team/personal/work`와 `/api/team/personal/dashboard`는 현재 사용자 개인 공간을 조회한다. 개인 업무의 상세 조회와 변경도 같은 `personal/work` 경로를 쓰며, 팀 업무와 다른 사용자의 개인 업무 ID는 404로 처리한다.
+- `GET/PUT /api/team/meetings/{daily|weekly}/{날짜}`는 안건·결정·후속 업무를 조회하거나 저장한다. 주간회의는 월요일을 기준으로 한다. 기존 회의 보고는 작성자와 팀장이 수정할 수 있다.
+- `GET /api/team/work?scope=all`은 팀 공유 업무를 반환한다. 업무 저장 시 `time`, `alerts`, `repeat`를 지정할 수 있으며, 기존 호출에서 생략하면 수정 시 기존 값을 유지한다. `alerts`는 `90일 전`, `30일 전`, `7일 전`, `3일 전`, `1일 전`, `당일` 중에서 고른다.
+- 업무 `category`는 팀 유형을 따른다. 영업형 `QUOTE`·`DELIVERY`·`MEETING`·`OTHER`, 개발형 `DEVELOP`·`TEST`·`FIELD`·`MEETING`·`OTHER`, 지원형 `PURCHASE`·`APPROVAL`·`HR`·`ACCOUNTING`·`OTHER`. 개인 공간은 본인 팀의 유형(관리자는 지원형)을 따른다. 유형에 맞지 않는 구분은 400이며, 이미 저장된 구분은 그대로 수정할 수 있다.
+- `GET /api/team/meetings/{daily|weekly}/{날짜}/work`는 보고서에 연결할 팀 업무를 반환한다. 보고서에 `workIds`와 `action`을 보내 초안 저장·상신할 수 있다. 상신 이후 내용은 잠기고 팀장만 결재할 수 있다.

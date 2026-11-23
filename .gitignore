@@ -10,12 +10,6 @@
 **/dist/
 **/.vite/
 
-# Backend
-**/.gradle/
-**/build/
-**/out/
-*.class
-
 # Python
 **/__pycache__/
 **/.venv/

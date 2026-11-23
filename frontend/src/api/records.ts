@@ -4,7 +4,7 @@ import { apiRequest } from './request'
  * API는 서버에 데이터를 요청하는 주소/방법이고, fetch가 실제 HTTP 요청을 보냅니다.
  * 성공하면 서버 데이터를 돌려주고, 실패하면 Error를 던져 화면의 catch가 안내하게 합니다.
  * 여기서는 입력창을 비우지 않습니다. 저장에 성공했는지는 QuickMemo가 확인해서 처리합니다.
- * 응답 모양은 types/record.ts, 요청 규칙은 docs/MINIMUM_DESIGN.md에서 함께 볼 수 있습니다.
+ * 응답 모양은 types/record.ts, 요청 규칙은 docs/API.md에서 함께 볼 수 있습니다.
  */
 import type { RecordDetail, RecordFilter, RecordPage } from '../types/record'
 

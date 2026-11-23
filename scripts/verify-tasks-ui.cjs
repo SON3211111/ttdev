@@ -9,7 +9,7 @@ const title = 'task-ui-' + Date.now();
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   let taskId;
   try {
-    await page.goto(base);
+    await page.goto(base + '/#home');
     const baseline = await (await page.request.get(base + '/api/tasks/dashboard')).json();
     const today = baseline.upcomingDue[0].date;
     const dueChart = page.getByRole('region', { name: '일주일 안에 끝낼 일' });

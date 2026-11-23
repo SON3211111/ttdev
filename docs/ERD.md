@@ -1,6 +1,6 @@
 # 나의 하루 데이터베이스 ERD
 
-현재 구현된 MySQL 업무 테이블 4개를 Flyway V1~V3 마이그레이션 기준으로 정리했다.
+SQL Server Express의 업무 테이블 4개를 초기 스키마 기준으로 정리했다.
 
 ```mermaid
 erDiagram
@@ -9,39 +9,39 @@ erDiagram
     records {
         BIGINT record_id PK
         VARCHAR(10) record_type
-        VARCHAR(100) title "NULL 허용"
-        TEXT content
+        NVARCHAR(100) title "NULL 허용"
+        NVARCHAR(MAX) content
         DATE record_date
         BIGINT content_version "기본값 1"
         VARCHAR(10) embedding_status "기본값 PENDING"
         BIGINT indexed_version "NULL 허용"
-        DATETIME(6) created_at
-        DATETIME(6) updated_at
+        DATETIME2(3) created_at
+        DATETIME2(3) updated_at
     }
 
     schedules {
         BIGINT schedule_id PK
-        VARCHAR(100) title
+        NVARCHAR(100) title
         DATE schedule_date
         TIME schedule_time "NULL 허용"
-        VARCHAR(200) location "NULL 허용"
-        TEXT description "NULL 허용"
+        NVARCHAR(200) location "NULL 허용"
+        NVARCHAR(MAX) description "NULL 허용"
         VARCHAR(10) status "기본값 PLANNED"
-        DATETIME(6) created_at
-        DATETIME(6) updated_at
+        DATETIME2(3) created_at
+        DATETIME2(3) updated_at
     }
 
     tasks {
         BIGINT task_id PK
-        VARCHAR(100) title
-        TEXT description "NULL 허용"
+        NVARCHAR(100) title
+        NVARCHAR(MAX) description "NULL 허용"
         VARCHAR(10) status
         VARCHAR(10) priority
         DATE due_date "NULL 허용"
-        DATETIME(6) completed_at "NULL 허용"
+        DATETIME2(3) completed_at "NULL 허용"
         DATE completed_date "NULL 허용"
-        DATETIME(6) created_at
-        DATETIME(6) updated_at
+        DATETIME2(3) created_at
+        DATETIME2(3) updated_at
     }
 
     task_transitions {
@@ -49,7 +49,7 @@ erDiagram
         BIGINT task_id FK
         VARCHAR(10) previous_status
         VARCHAR(10) next_status
-        DATETIME(6) changed_at
+        DATETIME2(3) changed_at
     }
 ```
 
@@ -64,10 +64,19 @@ erDiagram
 | `tasks` | 마감일과 진행 상태를 관리하는 할 일 | 상태는 `TODO`, `DOING`, `DONE`, 우선순위는 `LOW`, `NORMAL`, `HIGH`. `DONE`이면 두 완료 컬럼이 모두 필수이고 다른 상태에서는 둘 다 NULL이다. `completed_date`는 서울 기준 완료 날짜다. |
 | `task_transitions` | 할 일의 이전 상태, 다음 상태, 변경 시각 | 이력마다 할 일 1건을 참조한다. 할 일 1건에는 이력이 0건 이상 붙으며, 할 일을 삭제하면 이력도 `ON DELETE CASCADE`로 삭제된다. |
 
-캘린더는 독립 테이블인 `records`, `schedules`, `tasks`의 `record_date`, `schedule_date`, `due_date`를 기준으로 조회 결과를 날짜별로 합쳐 보여준다. AI 검색 인덱스 연동은 6단계 개발 범위이며, 현재 `records`에 원문 버전과 인덱스 상태 컬럼이 마련되어 있다.
+캘린더는 독립 테이블인 `records`, `schedules`, `tasks`의 `record_date`, `schedule_date`, `due_date`를 기준으로 조회 결과를 날짜별로 합쳐 보여준다. `records`에는 원문 버전과 인덱스 상태 컬럼이 있다. SQL Server가 원본 저장소이며 Qdrant는 향후 재생성 가능한 인덱스로 사용한다.
 
-## 마이그레이션
+날짜 컬럼은 날짜 자체를 저장하고 생성·수정 시각은 UTC로 저장한다. 한글 원문과 제목은 NVARCHAR로 저장한다.
 
-- [V1 — 기록](../backend/src/main/resources/db/migration/V1__create_records.sql)
-- [V2 — 약속](../backend/src/main/resources/db/migration/V2__create_schedules.sql)
-- [V3 — 할 일과 상태 변경 이력](../backend/src/main/resources/db/migration/V3__create_tasks.sql)
+## 초기 스키마
+
+백엔드가 최초 연결에서 [schema.sql](../backend-next/schema.sql)을 적용한다. 기존 데이터가 있는 SQL Server DB의 변경에는 별도 마이그레이션을 작성한다.
+
+## t&tech 팀 데이터
+
+- [팀 접근](../backend-next/team-schema.sql)은 팀원, 세션과 일회용 초대를 저장한다. 세션과 초대 링크의 토큰은 해시로 저장한다.
+- [팀 업무](../backend-next/team-work.sql)는 시작일·마감일, 등록자·현재 담당자, 상태와 원본 견적을 연결한다.
+- [주간보고](../backend-next/team-reports.sql)는 월요일·작성자·보고 종류를 키로 사용한다. 개인 보고를 제출하면 당시 완료·예정 업무를 함께 저장한다.
+- [조직](../backend-next/db.mjs)의 `teams`는 팀 이름·유형(SALES·DEV·SUPPORT)·근무지·정렬 순서를 저장하고, 처음 실행할 때 7개 팀을 넣는다. `team_users.role`은 ADMIN·LEAD·MEMBER이고, ADMIN만 `team_id`가 NULL이다. 팀장은 팀마다 1명(필터 고유 인덱스 `team_lead_per_team`)이다.
+- 팀 업무는 `team_id`(팀 업무) 또는 `personal_owner_id`(개인 업무) 중 하나만 가진다. 회의 보고서 키는 (`team_id`, 날짜, 종류)이고, 주간보고·초대도 `team_id`를 저장한다. 초대는 역할(LEAD·MEMBER)을 함께 저장한다.
+- 조직 구조 이전의 단일 팀 데이터(사용자·팀 업무·회의·보고서·초대)는 마이그레이션에서 기술영업 1팀으로 옮긴다.

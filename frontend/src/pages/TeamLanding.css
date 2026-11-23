@@ -1,0 +1,113 @@
+.team-landing {
+  --team-ink: #202820;
+  --team-muted: #536054;
+  --team-line: #e0e7df;
+  --team-lime: #d2f478;
+  min-height: 100vh;
+  color: var(--team-ink);
+  background: #f4f7f3;
+}
+
+.team-landing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 0 max(22px, calc((100% - 1240px) / 2));
+  border-bottom: 1px solid var(--team-line);
+  background: #fff;
+}
+
+.team-brand { display: inline-flex; align-items: center; gap: 9px; font-size: 24px; font-weight: 850; letter-spacing: -.065em; }
+.team-brand-mark { width: 21px; height: 21px; background: var(--team-lime); border: 5px solid #263e29; border-radius: 5px 10px 5px 10px; }
+.team-header-caption { color: var(--team-muted); font-size: 12px; }
+
+.team-overview {
+  max-width: 1284px;
+  margin-inline: auto;
+  padding: 32px 22px 44px;
+}
+
+.team-overview-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 18px; }
+.team-overview-heading h1 { font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spacing: -.055em; }
+.team-overview-heading time, .team-panel-heading span { color: var(--team-muted); font-size: 13px; }
+
+.team-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.team-metrics button {
+  display: grid;
+  gap: 7px;
+  padding: 13px 16px;
+  border: 1px solid var(--team-line);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+}
+.team-metrics button span { font-weight: 650; }
+.team-metrics button strong { font-size: 28px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.team-metrics button small { margin-left: 3px; font-size: 12px; }
+.team-metrics button[aria-pressed="true"] { border-color: #a1bd60; background: var(--team-lime); }
+.team-metrics button:nth-child(2) strong { color: #a13831; }
+
+.team-workspace { display: grid; grid-template-columns: minmax(0, 1.95fr) minmax(260px, 1fr); gap: 16px; align-items: stretch; }
+.team-panel { min-width: 0; border: 1px solid var(--team-line); border-radius: 15px; background: #fff; }
+.team-panel-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--team-line);
+}
+.team-panel-heading h2 { font-size: 17px; letter-spacing: -.035em; }
+
+.team-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 16px 16px;
+}
+.team-preview-day { padding: 6px 0; color: var(--team-muted); font-size: 12px; text-align: center; border-bottom: 1px solid var(--team-line); }
+.team-preview-day[aria-current="date"] { background: #eef7db; color: #2f4922; border-radius: 6px; font-weight: 750; }
+.team-work-bar {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 8px;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  min-height: 44px;
+  text-align: left;
+}
+.team-work-bar strong { font-size: 13px; overflow-wrap: anywhere; }
+.team-work-bar span { font-size: 11px; }
+.team-work-bar[aria-pressed="true"] { border-color: #637852; }
+.team-work-quote { background: #e7f2cf; }
+.team-work-meeting { background: #e9eaf8; }
+.team-work-delivery { background: #f8edd8; }
+.team-work-other { background: #edf0ef; }
+
+.team-work-list { margin: 0; padding: 8px; list-style: none; }
+.team-work-list button { display: grid; width: 100%; gap: 2px; min-height: 48px; padding: 7px 10px; border-radius: 8px; text-align: left; }
+.team-work-list button span { font-size: 12px; color: var(--team-muted); }
+.team-work-list button:hover, .team-work-list button[aria-pressed="true"] { background: #eff4e9; }
+.team-preview-detail { padding: 14px 18px 18px; border-top: 1px solid var(--team-line); }
+.team-detail-type { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 750; }
+.team-detail-type span { padding: 2px 7px; border-radius: 6px; background: #eaf1e6; }
+.team-detail-type .team-overdue { color: #922f27; background: #fce9e6; }
+.team-preview-detail h3 { margin: 6px 0 2px; font-size: 17px; }
+.team-preview-detail h3 ~ p { color: var(--team-muted); }
+.team-preview-detail p:last-child { margin-top: 6px; }
+
+@media (max-width: 760px) {
+  .team-overview { padding: 22px 14px 32px; }
+  .team-workspace { grid-template-columns: minmax(0, 1fr); }
+  .team-work-panel { grid-row: 1; }
+  .team-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .team-metrics button { padding: 10px 12px; }
+  .team-preview-grid { gap: 5px; padding-inline: 10px; }
+  .team-work-bar { padding-inline: 5px; }
+  .team-work-bar strong { font-size: 11px; }
+}

@@ -1,14 +1,20 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import AiTestPage from './pages/AiTestPage'
 import HomePage from './pages/HomePage'
 import TasksPage from './pages/TasksPage'
+import TeamLanding from './pages/TeamLanding'
+import TeamWorkspace from './pages/TeamWorkspace'
+import LegacyGate from './components/LegacyGate'
+import { smartViews } from './components/smartwork-data'
 import './App.css'
+
+const TeamChat = lazy(() => import('./pages/TeamChat'))
 
 type SelectedTask = { id: string; source: 'calendar' | 'schedules' }
 
 // URL 해시로 화면을 복원하고, 방문 기록에 저장한 할 일 ID와 진입 위치로 상세 화면을 복원합니다.
 function readLocation() {
-  const section = window.location.hash.slice(1) || 'home'
+  const section = window.location.hash.slice(1) || (new URLSearchParams(window.location.search).has('invite') ? 'team' : 'portal')
   const selectedTask = section === 'tasks' ? window.history.state?.selectedTask as SelectedTask | undefined : undefined
   return { section, selectedTask: selectedTask ?? null }
 }
@@ -40,17 +46,24 @@ export default function App() {
     })
   }
 
+  if (section === 'landing') return <TeamLanding />
+  const smartView = section === 'portal' ? 'portal' : section.startsWith('smart-') ? section.slice(6) : ''
+  if (smartViews.has(smartView) || section.startsWith('personal-') || ['team', 'workspaces', 'team-calendar', 'team-reports', 'team-settings'].includes(section)) {
+    return <TeamWorkspace view={section} navigate={navigate} onOpenChat={() => navigate('chat')} />
+  }
+  if (section === 'chat') return <Suspense fallback={<p role="status">채팅을 불러오는 중…</p>}><TeamChat onBack={() => navigate('team')} /></Suspense>
+
   if (section === 'ai-test') {
     return (
-      <>
+      <LegacyGate signIn={() => navigate('workspaces')}>
         <button className="back" onClick={() => navigate('home')}>← 홈으로 돌아가기</button>
         <AiTestPage />
-      </>
+      </LegacyGate>
     )
   }
 
   const tasksOpen = section === 'tasks'
-  return <>
+  return <LegacyGate signIn={() => navigate('workspaces')}>
     {/* 일정 관리에서 홈을 숨겨도 컴포넌트는 유지되므로 달력 선택 날짜와 입력 상태가 남습니다. */}
     <div hidden={tasksOpen}>
       <HomePage recordsOpen={section === 'records'} onHomeSection={navigate}
@@ -62,5 +75,5 @@ export default function App() {
       setTaskHomeRevision(value => value + 1)
       navigate(section)
     }} />}
-  </>
+  </LegacyGate>
 }

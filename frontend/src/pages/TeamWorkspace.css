@@ -1,0 +1,100 @@
+body:has(.ttech-shell) { background: var(--sw-canvas); }
+.ttech-shell { max-width: 1150px; margin-inline: auto; padding: 20px; color: var(--sw-title); }
+.ttech-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; }
+.ttech-header strong { font-size: 25px; letter-spacing: -.055em; }
+.ttech-panel { margin-block: 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; padding: 16px; }
+.ttech-auth { max-width: 440px; margin-inline: auto; }
+.ttech-form { display: grid; gap: 12px; margin-top: 12px; }
+.ttech-form label { display: grid; gap: 3px; min-width: 0; }
+.ttech-form input, .ttech-form textarea, .ttech-form select { min-width: 0; width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font: inherit; color: inherit; }
+.ttech-form button, .ttech-header button, .ttech-actions button { border-radius: 7px; padding: 7px 12px; background: var(--sw-primary); color: #fff; }
+.ttech-error { color: #872c26; background: #fae8e4; padding: 8px 12px; margin-block: 8px; border-radius: 6px; }
+.ttech-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ttech-spread { justify-content: space-between; }
+.ttech-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin-block: 10px; }
+.ttech-dashboard button { display: grid; text-align: left; gap: 4px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; }
+.ttech-dashboard button[aria-pressed="true"] { background: var(--sw-primary); color: #fff; }
+.ttech-dashboard button strong { font-size: 19px; }
+.ttech-dashboard-list { display: grid; gap: 5px; margin-top: 5px; }
+.ttech-filters { display: flex; align-items: flex-end; flex-wrap: wrap; }
+.ttech-filters label { flex: 1 1 125px; }
+.ttech-calendar-nav { justify-content: center; margin: 16px 0 8px; }
+.ttech-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; }
+.ttech-calendar > * { min-width: 0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+.ttech-weekday { padding: 4px; text-align: center; }
+.ttech-calendar-cell { min-height: 86px; padding: 3px; }
+.ttech-day { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 4px; border-radius: 5px; }
+.ttech-day[aria-pressed="true"] { background: var(--sw-primary); color: #fff; }
+.ttech-day-count { font-size: 11px; }
+.ttech-cell-work { display: grid; gap: 3px; }
+.ttech-work { display: grid; width: 100%; min-width: 0; border-radius: 5px; padding: 4px 6px; text-align: left; font-size: 12px; overflow-wrap: anywhere; }
+.ttech-work span { font-size: 11px; }
+.ttech-work:hover { box-shadow: inset 0 0 0 1px #93c5fd; }
+.ttech-work-quote { background: #eff6ff; }
+.ttech-work-delivery { background: #ecfdf5; }
+.ttech-work-meeting { background: #faf5ff; }
+.ttech-work-other { background: #f1f5f9; }
+.ttech-day-heading { margin-block: 12px 5px; }
+.ttech-dialog { width: min(520px, calc(100% - 24px)); max-height: calc(100dvh - 24px); border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; color: inherit; }
+.ttech-dialog::backdrop { background: #19211966; }
+.ttech-work-detail { display: grid; grid-template-columns: max-content 1fr; gap: 5px 12px; }
+.ttech-work-detail dd { margin: 0; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ttech-report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-block: 14px; }
+.ttech-report-summary section, .ttech-submissions { padding: 10px; background: #f8fafc; border-radius: 8px; }
+.ttech-report-summary h4 { margin: 0 0 5px; }
+.ttech-report-summary ul { padding-left: 17px; margin: 0; }
+.ttech-report-field { display: contents; }
+.ttech-submissions { margin-top: 12px; }
+.ttech-submissions summary { cursor: pointer; }
+.ttech-actions button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #bfdbfe; }
+.ttech-shell-wide { max-width: 1500px; }
+.ttech-workspace-home { padding: 28px; }
+.ttech-workspace-home button { margin-top: 16px; background: var(--sw-primary); color: #fff; border-radius: 8px; padding: 9px 14px; font-weight: 700; }
+.ttech-workspace-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 16px; margin-top: 18px; }
+.ttech-workspace-cards button { display: grid; gap: 5px; min-height: 110px; padding: 20px; text-align: left; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.ttech-workspace-cards button:hover { border-color: #93c5fd; background: #eff6ff; }
+.ttech-workspace-cards strong { font-size: 17px; }
+.ttech-workspace-cards span { color: var(--sw-body); }
+.ttech-workspace-layout { display: grid; grid-template-columns: 192px minmax(0, 1fr); gap: 18px; align-items: start; }
+.ttech-workspace-nav { display: grid; gap: 5px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: var(--sw-nav); color: #f8fafc; }
+.ttech-workspace-nav strong { padding: 5px 8px; font-size: 13px; }
+.ttech-workspace-nav button { padding: 8px; border-radius: 6px; text-align: left; }
+.ttech-workspace-nav button:hover { background: #1e293b; }
+.ttech-workspace-nav button[aria-current="page"] { background: var(--sw-primary); color: #ffffff; font-weight: 700; }
+.ttech-workspace-content { min-width: 0; }
+.ttech-calendar-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, .29fr); align-items: start; gap: 13px; margin-top: 14px; }
+.ttech-calendar-workspace > .ttech-panel { margin: 0; }
+.ttech-summary-panel { grid-column: 1 / -1; padding: 8px 12px; }
+.ttech-summary-panel .ttech-dashboard { margin: 0; }
+.ttech-work-queue h2 { font-size: 16px; }
+.ttech-report-tabs { margin-top: 12px; }
+@media (max-width: 1050px) {
+  .ttech-calendar-workspace { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 680px) {
+  .ttech-shell { padding: 12px; }
+  .ttech-header { flex-wrap: wrap; gap: 8px 12px; }
+  .ttech-workspace-layout { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .ttech-workspace-nav { display: flex; flex-wrap: wrap; }
+  .ttech-workspace-nav strong { flex: 1 0 100%; }
+  .ttech-calendar-cell { min-height: 42px; padding: 2px; }
+  .ttech-cell-work { display: none; }
+}
+
+.ttech-shell button:focus-visible, .ttech-shell a:focus-visible, .ttech-shell :is(input,select,textarea):focus-visible { outline-color: var(--sw-primary); }
+/* 관리자 조직 관리 */
+.ttech-org { display: grid; gap: 16px; }
+.ttech-muted { color: #64748b; font-size: 13px; }
+.ttech-feedback { color: #047857; font-weight: 600; }
+.ttech-table-wrap { overflow-x: auto; }
+.ttech-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ttech-table th, .ttech-table td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; vertical-align: middle; }
+.ttech-table th { color: #64748b; font-size: 12px; font-weight: 600; }
+.ttech-inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 10px; }
+.ttech-inline-form label { display: grid; gap: 4px; font-size: 12px; color: #475569; }
+.ttech-inline-form input, .ttech-inline-form select { min-height: 34px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 5px 8px; background: #fff; }
+.ttech-inline-form button { min-height: 34px; border-radius: 7px; padding: 6px 12px; background: var(--sw-primary); color: #fff; font-weight: 600; }
+.ttech-inline-form button.ttech-secondary { border: 1px solid #cbd5e1; background: #fff; color: #0f172a; }
+.ttech-table .ttech-inline-form { margin-top: 0; }
+.ttech-link { color: var(--sw-primary); font-weight: 600; }
+.ttech-link:hover { text-decoration: underline; }

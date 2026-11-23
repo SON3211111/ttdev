@@ -21,7 +21,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   await target.waitFor(); await target.click(); await editor.waitFor();
  }
  try {
-  await page.goto('http://localhost:5173');
+  await page.goto('http://localhost:5173/#home');
   for (const query of ['?status=PLANNED','?start=2020-01-01&end=2020-01-07']) {
     assert.equal((await page.request.get('http://localhost:5173/api/schedules' + query)).status(),400);
   }

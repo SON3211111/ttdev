@@ -9,7 +9,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright')
   const created = new Set();
   const marker = 'calendar-ui-' + Date.now();
   try {
-    await page.goto('http://localhost:5173');
+    await page.goto('http://localhost:5173/#home');
     await page.locator('#calendar').waitFor();
     await page.locator('.memo input[type=date]').fill('2020-02-29');
     await page.locator('#memo').fill(marker);

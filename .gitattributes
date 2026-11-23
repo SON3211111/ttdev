@@ -1,0 +1,5 @@
+# PDF·이미지 같은 바이너리 파일은 줄바꿈 변환을 하지 않습니다.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.woff2 binary
