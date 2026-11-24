@@ -10,9 +10,9 @@ const links = [
 ] as const
 
 // 와이어프레임처럼 사이드바 맨 위에서 팀 공간과 개인 공간을 전환합니다. 업체 관리는 영업형 팀에만, 보고서는 팀 공간에만 있습니다.
-export default function Sidebar({ view, navigate, alerts, overdue, open, close, personal, switchWorkspace, teamName, userName, showClients,
+export default function Sidebar({ view, navigate, alerts, overdue, todayCount = 0, completedCount = 0, open, close, personal, switchWorkspace, teamName, userName, showClients,
   teams, currentTeamId, ownTeamId, selectTeam }: {
-  view: View; navigate: (view: View) => void; alerts: number; overdue: number; open: boolean; close: () => void
+  view: View; navigate: (view: View) => void; alerts: number; overdue: number; todayCount?: number; completedCount?: number; open: boolean; close: () => void
   personal: boolean; switchWorkspace: () => void; teamName?: string; userName?: string; showClients: boolean
   teams?: Team[]; currentTeamId?: number; ownTeamId?: number; selectTeam: (id: number) => void
 }) {
@@ -34,9 +34,10 @@ export default function Sidebar({ view, navigate, alerts, overdue, open, close, 
         </select></label>}
     </div>
     <nav aria-label="업무 메뉴">{visible.map(([id, label, Icon]) => {
-      const count = id === 'notifications' ? alerts : id === 'overdue' ? overdue : 0
+      const count = { today: todayCount, notifications: alerts, overdue, completed: completedCount }[id as string] ?? 0
+      const tone = id === 'overdue' ? 'sw-nav-danger' : id === 'today' ? 'sw-nav-info' : id === 'completed' ? 'sw-nav-done' : ''
       return <button type="button" key={id} aria-current={view === id ? 'page' : undefined} onClick={() => { navigate(id); close() }}>
-        <Icon size={17} aria-hidden="true" /><span>{label}</span>{count > 0 && <b className={id === 'overdue' ? 'sw-nav-danger' : ''}>{count}</b>}
+        <Icon size={17} aria-hidden="true" /><span>{label}</span>{count > 0 && <b className={tone}>{count}</b>}
       </button>
     })}</nav>
   </aside>{open && <button className="sw-sidebar-overlay" type="button" onClick={close} aria-label="메뉴 닫기" />}</>

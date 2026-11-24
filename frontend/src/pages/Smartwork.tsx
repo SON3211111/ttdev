@@ -223,7 +223,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
       {!portal && <Sidebar personal={personal} teamName={teamName} userName={user?.name} showClients={sales}
         teams={teams} currentTeamId={personal ? ownTeamId : teamId ?? ownTeamId} ownTeamId={ownTeamId} selectTeam={id => { setMenu(false); selectTeam?.(id) }}
         switchWorkspace={() => { setMenu(false); switchWorkspace() }} view={currentView} navigate={changeView}
-        alerts={notifications.length} overdue={overdue.length} open={menu} close={() => setMenu(false)} />}
+        alerts={notifications.length} overdue={overdue.length} todayCount={today.length} completedCount={completed.length} open={menu} close={() => setMenu(false)} />}
       <div className="sw-shell">
         <TopHeader portal={portal} view={currentView} navigate={changeView} openWorkspace={openWorkspace} search={search} setSearch={setSearch}
           count={notifications.length} onMenu={() => setMenu(value => !value)} user={user} logout={logout} spaceName={spaceName} />
@@ -280,8 +280,8 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
             <h2>사내 보안 지침</h2><p>고객사 정보와 업무보고는 사내 승인된 계정으로만 열람합니다.</p>
           </section>}
           {currentView in labels && <section className="sw-card sw-module">
-            <h1 className="sw-page-title">{labels[currentView as keyof typeof labels]}</h1>
-            <WorkList kind={currentView as keyof typeof labels} tasks={groups[currentView as keyof typeof groups]} open={open} toggle={toggle} canEdit={canEdit} pendingId={pendingTask} />
+            <h1 className="sw-page-title">{labels[currentView as keyof typeof labels]} <span className="sw-page-count">{groups[currentView as keyof typeof groups].length}건</span></h1>
+            <WorkList full kind={currentView as keyof typeof labels} tasks={groups[currentView as keyof typeof groups]} open={open} toggle={toggle} canEdit={canEdit} pendingId={pendingTask} />
           </section>}
         </main>}
       </div>

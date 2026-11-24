@@ -1,6 +1,8 @@
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { CategoryBadge, OverdueBadge } from './SharedBadges'
-import { dateKey, overdueDays, overlaps, shiftDate, type Task } from './smartwork-data'
+import { useContext } from 'react'
+import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Plus } from 'lucide-react'
+import { CategoryBadge } from './SharedBadges'
+import { KindContext } from './kind-context'
+import { categoryLabel, dateKey, overdueDays, overlaps, shiftDate, type Task } from './smartwork-data'
 
 export type CalendarMode = 'month' | 'week' | 'day'
 const modes = { month: '월', week: '주', day: '일' }
@@ -11,6 +13,7 @@ export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, 
   cursor: string; setCursor: (date: string) => void; mode: CalendarMode; setMode: (mode: CalendarMode) => void
   tasks: Task[]; open: (task: Task) => void; create: (date: string) => void; today: string; readOnly?: boolean
 }) {
+  const kind = useContext(KindContext)
   const [year, month] = cursor.split('-').map(Number)
   const first = new Date(Date.UTC(year, month - 1, 1))
   const length = new Date(Date.UTC(year, month, 0)).getUTCDate()
@@ -26,8 +29,10 @@ export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, 
     <header className="sw-calendar-tools">
       <div className="sw-toolbar">
         <button className="sw-secondary" type="button" onClick={() => setCursor(today)}>오늘</button>
-        <button className="sw-icon-button" type="button" onClick={() => move(-1)} aria-label="이전 기간"><ChevronLeft size={18} /></button>
-        <button className="sw-icon-button" type="button" onClick={() => move(1)} aria-label="다음 기간"><ChevronRight size={18} /></button>
+        <div className="sw-period-nav">
+          <button type="button" onClick={() => move(-1)} aria-label="이전 기간"><ChevronLeft size={18} /></button>
+          <button type="button" onClick={() => move(1)} aria-label="다음 기간"><ChevronRight size={18} /></button>
+        </div>
         <h2>{mode === 'day' ? cursor : monthLabel.format(first)}</h2>
       </div>
       <div className="sw-toolbar">
@@ -41,17 +46,20 @@ export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, 
       {Array.from({ length: count }, (_, i) => {
         const date = shiftDate(firstKey, i)
         const list = tasks.filter(task => overlaps(task, date))
-        return <div key={date} className={`sw-day ${date === cursor ? 'sw-day-selected' : ''} ${date.slice(0, 7) !== cursor.slice(0, 7) ? 'sw-other-month' : ''}`}>
+        return <div key={date} className={`sw-day ${date === cursor ? 'sw-day-selected' : ''} ${date === today ? 'sw-day-today' : ''} ${date.slice(0, 7) !== cursor.slice(0, 7) ? 'sw-other-month' : ''}`}>
           <button type="button" className="sw-date" aria-label={date + ' 업무 조회'} aria-pressed={date === cursor} onClick={() => setCursor(date)}>
             <span>{Number(date.slice(-2))}</span>{date === today && <small>오늘</small>}
             <span className="sw-mobile-count">{list.length || ''}</span>
           </button>
           <div className="sw-events">
-            {list.map(task => <button className={`sw-event${overdueDays(task) > 0 ? ' sw-event-overdue' : ''}`} key={task.id} type="button" onClick={() => open(task)} title={task.company}>
-              <CategoryBadge category={task.category} /><span>{task.company || task.title}</span>
-              {task.status === '완료' && <small className="sw-event-complete">완료</small>}
-              {overdueDays(task) > 0 && <OverdueBadge days={overdueDays(task)} />}
-            </button>)}
+            {list.map(task => {
+              const late = overdueDays(task), done = task.status === '완료', label = categoryLabel(task.category, kind)
+              return <button className={`sw-event sw-event-${done ? 'done' : task.category}${late > 0 ? ' sw-event-overdue' : ''}`} key={task.id} type="button"
+                onClick={() => open(task)} title={`${label} · ${task.company || task.title}${done ? ' · 완료' : ''}`}>
+                <span className="sw-event-cat">{late > 0 ? <CircleAlert size={13} aria-hidden="true" /> : done ? <CircleCheck size={13} aria-hidden="true" /> : <i aria-hidden="true" />}{done ? '완료' : label}</span>
+                <span className="sw-event-name">{task.company || task.title}{late > 0 && ` (D+${late})`}</span>
+              </button>
+            })}
           </div>
         </div>
       })}

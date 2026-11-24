@@ -18,10 +18,10 @@ export default function LinkedMeetings({ workId, teamId }: { workId: string; tea
     <h3>연계 회의</h3>
     {error && <p role="alert" className="sw-error">{error}</p>}
     {meetings?.length === 0 && <p>연결된 회의가 없습니다.</p>}
-    {!!meetings?.length && <ul>{meetings.map(({ kind, day }) => <li key={kind + day}>
-      <a href={`#team-reports?kind=${kind}&date=${day}${teamId ? '&team=' + teamId : ''}`}>
+    {!!meetings?.length && <div className="sw-buttons sw-meeting-links">{meetings.map(({ kind, day }) =>
+      <a key={kind + day} className="sw-secondary" href={`#team-reports?kind=${kind}&date=${day}${teamId ? '&team=' + teamId : ''}`}>
         {day} {kind === 'daily' ? '일일회의' : '주간회의'}
-      </a>
-    </li>)}</ul>}
+      </a>)}
+    </div>}
   </section>
 }
