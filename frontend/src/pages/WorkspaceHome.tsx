@@ -30,7 +30,8 @@ export default function WorkspaceHome({ user, teams, members, openTeam, openPers
   const [inviting, setInviting] = useState(false)
   const [inviteVersion, setInviteVersion] = useState(0)
   const lead = members.find(member => member.role === 'LEAD')
-  const canInvite = !!user.teamId && (user.isAdmin || user.role === 'LEAD')
+  // 팀이 있으면 누구나 자기 팀에 팀원을 초대합니다(팀장 자리는 관리자만). 팀원은 본인이 보낸 초대만 봅니다.
+  const canInvite = !!user.teamId
   const teamLabel = user.membershipTeamId ? '내 팀' : '담당 팀'
   // 전체 팀 현황에는 내 팀도 함께 보여줍니다(맨 앞, '내 팀' 표시). 다른 팀은 조회 전용입니다.
   const allTeams = canViewAll(user) ? [...teams.filter(item => item.id === user.teamId), ...teams.filter(item => item.id !== user.teamId)] : []
@@ -99,7 +100,7 @@ export default function WorkspaceHome({ user, teams, members, openTeam, openPers
 
     <div className="sw-space-bottom">
       {user.teamId && <section className="sw-card sw-members" aria-labelledby="space-members-title">
-        <h2 id="space-members-title"><Users size={18} />{user.teamName} 구성원 ({members.length}명)<small>{user.isAdmin ? '조직 관리에서 팀장 지정·팀 이동' : '팀장 권한: 초대 링크 발급'}</small></h2>
+        <h2 id="space-members-title"><Users size={18} />{user.teamName} 구성원 ({members.length}명)<small>{user.isAdmin ? '조직 관리에서 팀장 지정·팀 이동' : '팀원 누구나 초대 링크 발급'}</small></h2>
         <ul>{members.map(member => <li key={member.id} className={member.role === 'LEAD' ? 'sw-member-lead' : ''}>
           <span className="sw-avatar">{member.name[0]}</span>
           <span><strong>{member.name} <b>{titleLabel(member)}</b></strong><small>{member.email}</small></span>
@@ -110,12 +111,12 @@ export default function WorkspaceHome({ user, teams, members, openTeam, openPers
         <section className="sw-card sw-howto" aria-labelledby="space-howto-title">
           <h2 id="space-howto-title"><CircleHelp size={18} />협업 워크스페이스 작동 방식</h2>
           <ol>
-            <li><strong>초대:</strong> 관리자가 팀을 지정해 팀장·팀원을 초대하고, 팀장은 자기 팀원을 초대합니다.</li>
+            <li><strong>초대:</strong> 관리자가 팀을 지정해 팀장·팀원을 초대하고, 팀장과 팀원은 자기 팀에 팀원을 초대합니다(초대한 사람이 기록되고 팀장이 취소할 수 있음).</li>
             <li><strong>링크로 가입:</strong> 받은 초대 링크로 이름과 비밀번호를 등록하면 지정된 팀과 직급으로 시작합니다.</li>
             <li><strong>공간 분리:</strong> 팀원과 팀장은 맡은 팀에서 협업하고, 회사 관리자는 전사 현황을 봅니다. 개인 일정은 본인만 봅니다.</li>
           </ol>
         </section>
-        {canInvite && <PendingInvites admin={user.isAdmin} version={inviteVersion} />}
+        {canInvite && <PendingInvites admin={user.isAdmin} version={inviteVersion} heading={user.isAdmin || user.role === 'LEAD' ? undefined : '내가 보낸 초대'} />}
       </div>
     </div>
   </div>

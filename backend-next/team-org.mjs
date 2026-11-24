@@ -85,7 +85,28 @@ async function keepActiveAdmin(tx) {
   if (admins <= 1) throw new ApiError(409, 'LAST_ADMIN', '활성 관리자 계정이 최소 1명 있어야 합니다.')
 }
 
+// 팀장 양도: 팀장(겸임 본부장 포함)이 맡은 팀의 활성 팀원 한 명에게 팀장 자리를 넘깁니다.
+// 본인 조직 변경을 막는 규칙의 예외로, 넘기는 쪽은 팀장 → 프로(겸임 본부장은 본부장 유지)가 되고 받는 쪽은 팀장이 됩니다. 두 변경 모두 이력에 남깁니다.
+async function transferLead(db, request, user) {
+  const { userId } = await body(request, ['userId'])
+  const id = idOf(userId)
+  if (id === user.id) validate('userId', '본인에게는 양도할 수 없습니다.')
+  return transaction(db, async tx => {
+    const [me] = await query(tx, `SELECT ${organizationState} FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id AND is_active=1`, { id: user.id })
+    if (!me?.managedTeamId) throw new ApiError(403, 'FORBIDDEN', '팀장만 팀장 자리를 양도할 수 있습니다.')
+    const [target] = await query(tx, `SELECT ${organizationState} FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id`, { id })
+    if (!target?.isActive || target.isAdmin || target.teamId !== me.managedTeamId) validate('userId', '같은 팀의 활성 팀원에게만 양도할 수 있습니다.')
+    const myTitle = me.title === '팀장' ? '프로' : me.title
+    await query(tx, "UPDATE team_users SET managed_team_id=NULL,role='MEMBER',title=@title WHERE id=@id", { title: myTitle, id: me.id })
+    await query(tx, "UPDATE team_users SET managed_team_id=@team,role='LEAD',title=N'팀장' WHERE id=@id", { team: me.managedTeamId, id })
+    await recordChange(tx, me.id, me, { title: myTitle, managedTeamId: null })
+    await recordChange(tx, me.id, target, { title: '팀장', managedTeamId: me.managedTeamId })
+    return new Response(null, { status: 204 })
+  })
+}
+
 export async function users(db, request, path, user) {
+  if (path.length === 1 && path[0] === 'lead-transfer' && request.method === 'POST') return transferLead(db, request, user)
   requireAdmin(user)
   if (!path.length && request.method === 'GET') {
     return Response.json(await query(db, `SELECT ${accountColumns}

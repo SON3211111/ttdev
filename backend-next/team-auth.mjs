@@ -151,15 +151,16 @@ export async function auth(db, request, action) {
     return Response.json(invite)
   }
   if (request.method === 'GET' && action === 'invites') {
-    // 아직 수락하지 않은 유효한 초대 목록입니다. 관리자는 전체, 팀장은 자기 팀만 봅니다.
+    // 아직 수락하지 않은 유효한 초대 목록입니다. 관리자는 전체, 팀장은 자기 팀 팀원 초대, 팀원은 본인이 보낸 초대만 봅니다.
     const viewer = await requireUser(db, request)
-    if (!viewer.isAdmin && viewer.role !== 'LEAD') throw new ApiError(403, 'FORBIDDEN', '관리자와 팀장만 초대 현황을 볼 수 있습니다.')
+    const scope = viewer.isAdmin ? 'ALL' : viewer.role === 'LEAD' ? 'TEAM' : 'OWN'
     return Response.json(await query(db, `SELECT i.email,i.role,i.team_id AS teamId,t.name AS teamName,
-      CONVERT(varchar(33),i.expires_at,126) AS expiresAt FROM team_invites i LEFT JOIN teams t ON t.id=i.team_id
+      CONVERT(varchar(33),i.expires_at,126) AS expiresAt,inviter.name AS invitedByName FROM team_invites i
+      LEFT JOIN teams t ON t.id=i.team_id LEFT JOIN team_users inviter ON inviter.id=i.invited_by
       WHERE i.consumed_at IS NULL AND i.expires_at>SYSUTCDATETIME()
-        AND (@all=1 OR (i.team_id=@team AND i.role='MEMBER'))
+        AND (@scope='ALL' OR (i.team_id=@team AND i.role='MEMBER' AND (@scope='TEAM' OR i.invited_by=@viewer)))
         AND NOT EXISTS (SELECT 1 FROM team_users u WHERE u.email=i.email) ORDER BY i.expires_at DESC`,
-    { all: viewer.isAdmin ? 1 : 0, team: viewer.teamId }))
+    { scope, team: viewer.teamId, viewer: viewer.id }))
   }
   if (request.method !== 'POST') return
   if (action === 'profile') {
@@ -201,9 +202,12 @@ export async function auth(db, request, action) {
     return new Response(null, { status: 204, headers: { 'Set-Cookie': cookie('', 0) } })
   }
   if (action === 'invite' || action === 'invite-cancel') {
-    // 관리자는 팀(생략하면 자기 팀)과 역할(팀장·팀원)을 지정하고, 팀장은 자기 팀의 팀원만 초대합니다. 다시 초대하면 이전 링크는 무효가 됩니다.
+    // 관리자는 팀(생략하면 자기 팀)과 역할(팀장·팀원)을 지정하고, 팀장·팀원은 자기 팀의 팀원만 초대합니다. 다시 초대하면 이전 링크는 무효가 됩니다.
+    // 팀원은 본인이 보낸 초대만 다시 보내거나 취소하고, 다른 사람이 보낸 대기 중 초대는 덮어쓰지 못합니다. 팀장은 자기 팀 팀원 초대를 모두 관리합니다.
     const inviter = await requireUser(db, request)
-    if (!inviter.isAdmin && inviter.role !== 'LEAD') throw new ApiError(403, 'FORBIDDEN', '관리자와 팀장만 초대할 수 있습니다.')
+    const lead = !inviter.isAdmin && inviter.role === 'LEAD'
+    const member = !inviter.isAdmin && !lead
+    if (member && !inviter.teamId) throw new ApiError(403, 'FORBIDDEN', '소속 팀이 있어야 초대할 수 있습니다.')
     const input = await body(request, action === 'invite' ? ['email', 'teamId', 'role'] : ['email', 'teamId'])
     const email = emailOf(input.email)
     const admin = !!inviter.isAdmin
@@ -213,10 +217,10 @@ export async function auth(db, request, action) {
     if (!admin && input.teamId !== undefined && input.teamId !== inviter.teamId) throw new ApiError(403, 'FORBIDDEN', '자기 팀에만 초대할 수 있습니다.')
     if (action === 'invite-cancel') {
       await query(db, `DELETE FROM team_invites WHERE email=@email AND team_id=@teamId AND consumed_at IS NULL
-        AND (@admin=1 OR role='MEMBER')`, { email, teamId, admin: admin ? 1 : 0 })
+        AND (@admin=1 OR role='MEMBER') AND (@member=0 OR invited_by=@inviter)`, { email, teamId, admin: admin ? 1 : 0, member: member ? 1 : 0, inviter: inviter.id })
       return new Response(null, { status: 204 })
     }
-    if (!admin && input.role !== undefined && input.role !== 'MEMBER') throw new ApiError(403, 'FORBIDDEN', '팀장은 팀원만 초대할 수 있습니다.')
+    if (!admin && input.role !== undefined && input.role !== 'MEMBER') throw new ApiError(403, 'FORBIDDEN', '팀장·팀원은 팀원만 초대할 수 있습니다.')
     if (!['LEAD', 'MEMBER'].includes(role)) validate('role')
     const token = issueToken()
     await transaction(db, async tx => {
@@ -229,11 +233,16 @@ export async function auth(db, request, action) {
           AND role='LEAD' AND consumed_at IS NULL AND expires_at>SYSUTCDATETIME()`, { email, teamId })
         if (pendingLead) throw new ApiError(409, 'LEAD_INVITE_PENDING', '관리자가 보낸 팀장 초대가 대기 중입니다.')
       }
+      if (member) {
+        const [others] = await query(tx, `SELECT 1 AS pending FROM team_invites WHERE email=@email AND team_id=@teamId AND consumed_at IS NULL
+          AND expires_at>SYSUTCDATETIME() AND (invited_by IS NULL OR invited_by<>@inviter)`, { email, teamId, inviter: inviter.id })
+        if (others) throw new ApiError(409, 'INVITE_PENDING', '다른 사람이 보낸 초대가 이미 대기 중입니다. 팀장에게 확인해 주세요.')
+      }
       if (role === 'LEAD') await assertNoLead(tx, teamId)
       await query(tx, `DELETE FROM team_invites WHERE email=@email AND team_id=@teamId AND consumed_at IS NULL
           AND (@admin=1 OR role='MEMBER');
-        INSERT INTO team_invites (token_hash,email,expires_at,team_id,role) VALUES (@hash,@email,DATEADD(day,@days,SYSUTCDATETIME()),@teamId,@role);`,
-      { email, hash: tokenHash(token), days: inviteDays, teamId, role, admin: admin ? 1 : 0 })
+        INSERT INTO team_invites (token_hash,email,expires_at,team_id,role,invited_by) VALUES (@hash,@email,DATEADD(day,@days,SYSUTCDATETIME()),@teamId,@role,@inviter);`,
+      { email, hash: tokenHash(token), days: inviteDays, teamId, role, admin: admin ? 1 : 0, inviter: inviter.id })
     })
     return Response.json({ token, expiresInDays: inviteDays }, { status: 201 })
   }

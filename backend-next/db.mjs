@@ -58,6 +58,9 @@ async function connect() {
         ALTER TABLE dbo.team_meetings ADD approved_by int NULL REFERENCES dbo.team_users(id), approved_at datetime2 NULL`)
       const [organization] = await query(tx, "SELECT COL_LENGTH('dbo.team_users','managed_team_id') AS currentModel")
       if (!organization.currentModel) await migrateOrganization(tx)
+      // 팀원도 자기 팀에 초대할 수 있으므로, 초대를 만든 사람을 남깁니다(이전 초대는 비어 있음).
+      await tx.request().batch(`IF COL_LENGTH('dbo.team_invites','invited_by') IS NULL
+        ALTER TABLE dbo.team_invites ADD invited_by int NULL CONSTRAINT team_invites_inviter REFERENCES dbo.team_users(id)`)
       await tx.request().batch(`IF COL_LENGTH('dbo.team_work','end_time') IS NULL
         ALTER TABLE dbo.team_work ADD end_time time(0) NULL,
           created_at datetime2 NULL CONSTRAINT team_work_created_default DEFAULT SYSUTCDATETIME();

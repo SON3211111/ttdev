@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { roleLabels, teamGet, teamWrite, type Role, type TeamUser } from '../api/team'
+import { roleLabels, teamGet, teamWrite, type Role, type TeamMember, type TeamUser } from '../api/team'
 
-type Invite = { email: string; role: Role; teamId: number; teamName: string; expiresAt: string }
+type Invite = { email: string; role: Role; teamId: number; teamName: string; expiresAt: string; invitedByName?: string | null }
 
 function inviteLink(token: string) {
   const url = new URL(location.pathname, location.origin)
@@ -22,7 +22,7 @@ export function InviteLink({ url }: { url: string }) {
   </div>
 }
 
-// 수락 대기 중인 초대 목록과 재발송. 관리자는 전체, 팀장은 자기 팀만 봅니다. 재발송하면 새 링크가 나오고 이전 링크는 무효입니다.
+// 수락 대기 중인 초대 목록과 재발송. 관리자는 전체, 팀장은 자기 팀, 팀원은 본인이 보낸 초대만 봅니다. 재발송하면 새 링크가 나오고 이전 링크는 무효입니다.
 export function PendingInvites({ admin, version = 0, heading }: { admin: boolean; version?: number; heading?: ReactNode }) {
   const [invites, setInvites] = useState<Invite[]>()
   const [error, setError] = useState('')
@@ -66,7 +66,7 @@ export function PendingInvites({ admin, version = 0, heading }: { admin: boolean
     {!invites && !error && <p role="status">초대 현황을 불러오는 중입니다.</p>}
     {invites?.length === 0 && <p className="ttech-muted">수락을 기다리는 초대가 없습니다.</p>}
     <ul>{invites?.map(invite => <li key={invite.teamId + ':' + invite.email}>
-      <span><strong>{invite.email}</strong><small>{invite.teamName} · {roleLabels[invite.role]} · {invite.expiresAt.slice(0, 10)}까지</small></span>
+      <span><strong>{invite.email}</strong><small>{invite.teamName} · {roleLabels[invite.role]} · {invite.expiresAt.slice(0, 10)}까지{invite.invitedByName && ' · 초대한 사람 ' + invite.invitedByName}</small></span>
       <span>
       <button type="button" className="sw-secondary" onClick={() => void resend(invite)} aria-label={invite.email + ' 재발송'}>재발송</button>
       <button type="button" className="sw-secondary" onClick={() => void cancel(invite)} aria-label={invite.email + ' 초대 취소'}>초대 취소</button>
@@ -77,7 +77,7 @@ export function PendingInvites({ admin, version = 0, heading }: { admin: boolean
 }
 
 // 팀장 설정 화면: 자기 팀 팀원 초대, 초대 대기 목록, (기존 설치에서 관리자가 없을 때) 관리자 계정 만들기.
-// 팀장의 자기 팀 팀원 초대 폼. 링크를 만들면 onInvited로 알려 초대 대기 목록을 새로 읽게 합니다.
+// 자기 팀 팀원 초대 폼(팀장·팀원 모두). 링크를 만들면 onInvited로 알려 초대 대기 목록을 새로 읽게 합니다.
 export function TeamInviteForm({ user, onInvited }: { user: TeamUser; onInvited: () => void }) {
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
@@ -106,11 +106,47 @@ export function TeamInviteForm({ user, onInvited }: { user: TeamUser; onInvited:
   </section>
 }
 
-// 팀장 설정 화면: 자기 팀 팀원 초대와 초대 대기 목록.
+// 팀장 양도: 같은 팀 팀원 한 명을 골라 팀장 자리를 넘깁니다. 넘기면 본인은 프로가 되므로 한 번 더 확인합니다.
+export function LeadTransfer({ user, members, onDone }: { user: TeamUser; members: TeamMember[]; onDone: () => Promise<void> }) {
+  const candidates = members.filter(member => member.id !== user.id && !member.isAdmin)
+  const [picked, setPicked] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const target = candidates.find(member => String(member.id) === picked)
+  async function transfer() {
+    if (!target) return
+    setPending(true)
+    setError('')
+    try {
+      await teamWrite('users/lead-transfer', 'POST', { userId: target.id })
+      await onDone()
+    } catch (error) {
+      setError(message(error))
+      setPending(false)
+    }
+  }
+  return <section className="sw-card sw-invites" aria-labelledby="lead-transfer-title">
+    <h2 id="lead-transfer-title">팀장 양도<small>넘기면 본인은 프로가 됩니다</small></h2>
+    {error && <p role="alert" className="sw-error">{error}</p>}
+    {candidates.length === 0 ? <p className="ttech-muted">양도할 팀원이 없습니다.</p> : <div className="ttech-form">
+      <label>새 팀장<select value={picked} disabled={pending} onChange={event => { setPicked(event.target.value); setConfirming(false) }}>
+        <option value="">팀원을 고르세요</option>
+        {candidates.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+      </select></label>
+      {!confirming ? <button type="button" disabled={!target || pending} onClick={() => setConfirming(true)}>팀장 양도</button>
+        : <><p role="status">{target?.name}님에게 {user.teamName} 팀장을 넘기고 본인은 프로가 됩니다. 계속할까요?</p>
+          <span className="sw-buttons"><button type="button" className="sw-primary" disabled={pending} onClick={() => void transfer()}>양도 확정</button>
+            <button type="button" className="sw-secondary" disabled={pending} onClick={() => setConfirming(false)}>취소</button></span></>}
+    </div>}
+  </section>
+}
+
+// 설정 화면: 자기 팀 팀원 초대와 초대 대기 목록. 팀원은 본인이 보낸 초대만 봅니다.
 export default function TeamInvites({ user }: { user: TeamUser }) {
   const [version, setVersion] = useState(0)
   return <div className="sw-settings-stack">
     <TeamInviteForm user={user} onInvited={() => setVersion(value => value + 1)} />
-    <PendingInvites admin={false} version={version} />
+    <PendingInvites admin={false} version={version} heading={user.role === 'LEAD' ? undefined : '내가 보낸 초대'} />
   </div>
 }

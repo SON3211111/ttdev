@@ -3,7 +3,7 @@ import { canViewAll, roleLabels, teamGet, teamWrite, titleLabel, withTeam, type 
 import TeamReports from './TeamReports'
 import OrgAdmin from './OrgAdmin'
 import TeamMeetings from './TeamMeetings'
-import TeamInvites from './TeamInvites'
+import TeamInvites, { LeadTransfer } from './TeamInvites'
 import WorkspaceHome from './WorkspaceHome'
 import Smartwork from './Smartwork'
 import { meetingDetailRoute, smartViews, workDetailRoute, type View, type WorkDetailLocation } from '../components/smartwork-data'
@@ -255,7 +255,10 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
     {isAdmin ? <OrgAdmin teams={teams} reloadTeams={reloadTeams} user={user} onSessionChanged={async () => {
       setSession(await teamGet<TeamSession>('auth/session'))
     }} />
-      : user.role === 'LEAD' && <TeamInvites user={user} />}
+      : !!user.teamId && <TeamInvites user={user} />}
+    {!isAdmin && !!user.managedTeamId && <LeadTransfer user={user} members={members} onDone={async () => {
+      setSession(await teamGet<TeamSession>('auth/session'))
+    }} />}
     <ProfileSettings user={user} onChanged={changed => setSession(current => current && { ...current, user: changed })} />
     <PasswordSettings onChanged={() => {
       setSession({ user: null, setupRequired: false })

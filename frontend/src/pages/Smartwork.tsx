@@ -300,8 +300,8 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
         alerts={notifications.length} overdue={overdue.length} todayCount={today.length} completedCount={completed.length} open={menu} close={() => setMenu(false)} />}
       <div className="sw-shell">
         <TopHeader portal={portal} view={currentView} navigate={changeView} openWorkspace={openWorkspace} search={search} setSearch={setSearch}
-          count={notifications.length} onMenu={() => setMenu(value => !value)} user={user} logout={logout} spaceName={spaceName} />
-        {portal ? <PortalHome navigate={changeView} openWorkspace={openWorkspace} name={user?.name} taskCount={shownTasks && user ? today.length : undefined} /> : <main className="sw-workspace-main">
+          alerts={notifications} openTask={open} onMenu={() => setMenu(value => !value)} user={user} logout={logout} spaceName={spaceName} />
+        {portal ? <PortalHome navigate={changeView} openWorkspace={openWorkspace} user={user} members={members} teamCount={teams?.length ?? 0} sales={sales} /> : <main className="sw-workspace-main">
           <span className="sr-only" role="status">{feedback}</span>
           {error && <p className="sw-error" role="alert">{error}</p>}
           {(detailWorkId ? !detailTask : workViews && !shownTasks) && !error && <p role="status" className="sr-only">업무를 불러오는 중입니다…</p>}
