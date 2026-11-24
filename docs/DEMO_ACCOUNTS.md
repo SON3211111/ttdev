@@ -27,10 +27,10 @@
 
 | 소속 팀 | 첨부된 업무 |
 |---|---|
-| 기술영업 1팀 | [TSK-0085](http://localhost:5174/#work/85?team=1) 한빛 프로젝트 장비 견적 검토 · [TSK-0086](http://localhost:5174/#work/86?team=1) 다온 프로젝트 납품 일정 확인 |
-| 기술영업 2팀 | [TSK-0171](http://localhost:5174/#work/171?team=2) 다온 프로젝트 장비 견적 검토 · [TSK-0172](http://localhost:5174/#work/172?team=2) 새봄 프로젝트 납품 일정 확인 |
-| 기술영업팀(서울지사) | [TSK-0257](http://localhost:5174/#work/257?team=3) 새봄 프로젝트 장비 견적 검토 · [TSK-0258](http://localhost:5174/#work/258?team=3) 온유 프로젝트 납품 일정 확인 |
-| 솔루션개발 1팀 | [TSK-0343](http://localhost:5174/#work/343?team=4) 온유 프로젝트 후속 일정 정리 · [TSK-0344](http://localhost:5174/#work/344?team=4) 한빛 프로젝트 대시보드 개선 |
-| 솔루션개발 2팀 | [TSK-0429](http://localhost:5174/#work/429?team=5) 한빛 프로젝트 후속 일정 정리 · [TSK-0430](http://localhost:5174/#work/430?team=5) 다온 프로젝트 대시보드 개선 |
-| 경영지원팀 | [TSK-0515](http://localhost:5174/#work/515?team=6) 다온 프로젝트 후속 일정 정리 · [TSK-0516](http://localhost:5174/#work/516?team=6) 새봄 프로젝트 구매 요청 검토 |
-| 기업부설연구소 | [TSK-0601](http://localhost:5174/#work/601?team=7) 새봄 프로젝트 후속 일정 정리 · [TSK-0602](http://localhost:5174/#work/602?team=7) 온유 프로젝트 대시보드 개선 |
+| 기술영업 1팀 | [TSK-0085](http://localhost:5174/#work/85?team=1) 삼성전자 장비 견적 검토 · [TSK-0086](http://localhost:5174/#work/86?team=1) 현대자동차 납품 일정 확인 |
+| 기술영업 2팀 | [TSK-0171](http://localhost:5174/#work/171?team=2) 한화에어로스페이스 장비 견적 검토 · [TSK-0172](http://localhost:5174/#work/172?team=2) 두산에너빌리티 납품 일정 확인 |
+| 기술영업팀(서울지사) | [TSK-0257](http://localhost:5174/#work/257?team=3) 기아 장비 견적 검토 · [TSK-0258](http://localhost:5174/#work/258?team=3) 롯데케미칼 납품 일정 확인 |
+| 솔루션개발 1팀 | [TSK-0343](http://localhost:5174/#work/343?team=4) 삼성SDS 후속 일정 정리 · [TSK-0344](http://localhost:5174/#work/344?team=4) 네이버 대시보드 개선 |
+| 솔루션개발 2팀 | [TSK-0429](http://localhost:5174/#work/429?team=5) SK텔레콤 후속 일정 정리 · [TSK-0430](http://localhost:5174/#work/430?team=5) KT 대시보드 개선 |
+| 경영지원팀 | [TSK-0515](http://localhost:5174/#work/515?team=6) CJ제일제당 후속 일정 정리 · [TSK-0516](http://localhost:5174/#work/516?team=6) 신한은행 구매 요청 검토 |
+| 기업부설연구소 | [TSK-0601](http://localhost:5174/#work/601?team=7) 삼성바이오로직스 후속 일정 정리 · [TSK-0602](http://localhost:5174/#work/602?team=7) 한국항공우주산업 대시보드 개선 |

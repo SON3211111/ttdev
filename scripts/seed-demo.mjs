@@ -11,7 +11,16 @@ const topics = {
   DEVELOP: '대시보드 개선', TEST: '기능 검증', FIELD: '현장 지원', PURCHASE: '구매 요청 검토',
   APPROVAL: '결재 서류 검토', HR: '온보딩 준비', ACCOUNTING: '정산 내역 검토',
 }
-const projects = ['한빛 프로젝트', '다온 프로젝트', '새봄 프로젝트', '온유 프로젝트']
+// 팀마다 거래처로 쓰는 실제 기업 4곳입니다(팀 정렬 순서와 같음).
+const companiesByTeam = [
+  ['삼성전자', '현대자동차', 'LG화학', 'SK하이닉스'],
+  ['포스코', '한화에어로스페이스', '두산에너빌리티', 'HD현대중공업'],
+  ['LG디스플레이', '삼성SDI', '기아', '롯데케미칼'],
+  ['네이버', '카카오', 'LG CNS', '삼성SDS'],
+  ['SK텔레콤', 'KT', '포스코DX', '현대오토에버'],
+  ['한국전력공사', 'CJ제일제당', '신한은행', '대한항공'],
+  ['LG에너지솔루션', '셀트리온', '삼성바이오로직스', '한국항공우주산업'],
+]
 const today = seoulToday()
 const month = today.slice(0, 7) + '-01'
 const start = shiftDay(month, -1).slice(0, 7) + '-01'
@@ -49,6 +58,7 @@ try {
         for (let n = 0; n < 2; n++) {
           const categories = categoriesByKind[team.kind]
           const category = categories[(dayIndex * 2 + n) % categories.length]
+          const projects = companiesByTeam[index % companiesByTeam.length]
           const project = projects[(Math.floor(dayIndex / 5) + n + index) % projects.length]
           const due = shiftDay(day, n)
           const status = due > today ? 'WAITING' : dayIndex % 5 === 0 ? 'IN_PROGRESS' : 'DONE'

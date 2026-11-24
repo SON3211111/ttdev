@@ -6,6 +6,7 @@ import { KindContext } from './kind-context'
 import { alertOptions, categoriesByKind, workCode, type Category, type Task, type WorkStatus } from './smartwork-data'
 
 export type DrawerState = { date: string; task?: Task; source?: Task }
+export type SaveTarget = 'team' | 'personal'
 const statuses: WorkStatus[] = ['대기', '진행 중', '완료']
 const historyLabels: Record<string, string> = {
   startDate: '시작일', dueDate: '종료일', time: '시작 시각', endTime: '종료 시각', status: '상태', assigneeId: '담당자',
@@ -42,8 +43,9 @@ function WorkHistory({ path }: { path: string }) {
   </details>
 }
 
-export default function TaskDrawer({ state, dismiss, save, remove, canEdit, members, openDelivery, openQuote, historyPath, inline = false, openFull }: {
-  state: DrawerState; dismiss: () => void; save: (task: Task) => Promise<void>; remove: (id: string) => Promise<void>
+// targets가 있으면 새 업무를 팀 캘린더와 개인 캘린더 중 어디에 저장할지 고릅니다(담당자 선택은 팀일 때만).
+export default function TaskDrawer({ state, dismiss, save, remove, canEdit, members, openDelivery, openQuote, historyPath, inline = false, openFull, targets, initialTarget = 'team' }: {
+  state: DrawerState; dismiss: () => void; save: (task: Task, target: SaveTarget) => Promise<void>; targets?: { value: SaveTarget; label: string }[]; initialTarget?: SaveTarget; remove: (id: string) => Promise<void>
   canEdit: boolean; members: { id: number; name: string }[]
   openDelivery?: (task: Task) => void; openQuote: (id: number) => void; historyPath?: string
   inline?: boolean; openFull?: () => void
@@ -59,6 +61,9 @@ export default function TaskDrawer({ state, dismiss, save, remove, canEdit, memb
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [copied, setCopied] = useState(false)
+  const choosing = !task && !source && !!targets?.length
+  const [target, setTarget] = useState<SaveTarget>(initialTarget)
+  const people = !choosing || target === 'team' ? members : []
   // 넓은 화면(1280px 이상)에서는 와이어프레임처럼 캘린더 옆에 고정 패널로 열고, 좁은 화면에서는 화면을 덮는 패널로 엽니다.
   useEffect(() => {
     const dialog = ref.current
@@ -97,7 +102,7 @@ export default function TaskDrawer({ state, dismiss, save, remove, canEdit, memb
       notes: source?.notes ?? String(data.get('notes')).trim(), status, time: String(data.get('time') ?? ''),
       endTime: String(data.get('endTime') ?? ''),
       title, assigneeId: Number(data.get('assignee')) || task?.assigneeId,
-    }))
+    }, choosing ? target : initialTarget))
   }
 
   const content = <>
@@ -108,17 +113,20 @@ export default function TaskDrawer({ state, dismiss, save, remove, canEdit, memb
     <form onSubmit={submit}>
       <fieldset className="sw-drawer-fields" disabled={!canEdit || pending}>
         {error && <p role="alert" className="sw-error">{error}</p>}
+        {choosing && <fieldset><legend>등록할 캘린더</legend><div className="sw-mode sw-save-target" role="group" aria-label="등록할 캘린더">{targets!.map(item =>
+          <button type="button" key={item.value} aria-pressed={target === item.value} onClick={() => setTarget(item.value)}>{item.label}</button>)}</div>
+          <p className="sw-hint">{target === 'team' ? '팀원 모두가 팀 캘린더에서 봅니다.' : '본인만 개인 캘린더에서 봅니다.'}</p></fieldset>}
         {task && <p>{workCode(task.id)} · 등록자 {task.createdByName || '미정'}
           {task.createdAt && <> · <time dateTime={task.createdAt}>{localDateTime.format(new Date(task.createdAt))}</time></>}</p>}
         <fieldset><legend>업무구분</legend><div className="sw-categories">{choices.map(value =>
           <button type="button" key={value} disabled={!!source} aria-pressed={value === category} onClick={() => setCategory(value)}><CategoryBadge category={value} /></button>)}</div></fieldset>
         <label>{kind === 'SALES' ? '업체명' : '관련 업체'}<span className="sw-input-icon"><Search size={16} /><input name="company" placeholder="업체명을 입력하세요…" defaultValue={source?.company ?? task?.company} maxLength={160} readOnly={!!source} /></span></label>
         <label>업무 제목<input name="title" defaultValue={source ? (source.title || source.company) + ' 납품' : task?.title} maxLength={100} /></label>
-        {members.length > 0 && <label>담당자<select name="assignee" defaultValue={task?.assigneeId ?? ''}>
-          {task?.assigneeId && !members.some(member => member.id === task.assigneeId) && <option value={task.assigneeId}>{task.assigneeName} (기존 담당자)</option>}
-          {!task && <option value="">내 업무로 등록</option>}{members.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+        {people.length > 0 && <label>담당자<select name="assignee" defaultValue={task?.assigneeId ?? ''}>
+          {task?.assigneeId && !people.some(member => member.id === task.assigneeId) && <option value={task.assigneeId}>{task.assigneeName} (기존 담당자)</option>}
+          {!task && <option value="">내 업무로 등록</option>}{people.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
         </select></label>}
-        {!!task?.assigneeName && members.length === 0 && <p>담당자 {task.assigneeName}</p>}
+        {!!task?.assigneeName && people.length === 0 && <p>담당자 {task.assigneeName}</p>}
         <fieldset><legend>일정</legend><div className="sw-date-inputs">
           <label>시작일<input name="start" type="date" required defaultValue={task?.start ?? date} /></label>
           <label>종료일<input name="end" type="date" required defaultValue={task?.end ?? date} /></label>

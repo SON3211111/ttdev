@@ -280,18 +280,21 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
       detailWorkId={detail[2]} openDetail={navigate} navigate={next => {
         if (next === 'portal') navigate('portal')
         else if (next === 'workspace') navigate('workspaces')
-        else if (personal) navigate(`personal-${next}`)
+        else if (personal) navigate(next === 'reports' ? 'team-reports' : `personal-${next}`)
         else {
           setSelectedTeam(readOnly && viewAll ? teamId : undefined)
           navigate(`smart-${next}`)
         }
       }}
-      switchWorkspace={() => personal ? viewTeamCalendar(undefined) : navigate('personal-calendar')}
+      switchWorkspace={() => personal ? viewTeamCalendar(user.teamId ? undefined : selectedTeam ?? teams[0]?.id) : navigate('personal-calendar')}
       reports={reportsPanel} workspacePanel={workspacePanel} settingsPanel={settingsPanel}
       teamName={team?.name ?? user.teamName} teamId={teamId} teamKind={team?.kind ?? user.teamKind}
       readOnly={readOnly} teams={viewAll ? teams : undefined} ownTeamId={user.teamId ?? undefined} selectTeam={viewTeamCalendar} />
   }
-  if (!invite && smartViews.has(smartView) && (portal || user)) {
+  // 팀이 없는 사람(대표·본부장 등)은 팀을 고르기 전까지 캘린더·업무 메뉴를 개인 캘린더로 씁니다. 캘린더의 '팀' 버튼으로 팀(조회 전용)을 봅니다.
+  const noTeamPersonal = !!user && !user.teamId && selectedTeam === undefined && !meetingLink && !portal
+    && smartViews.has(smartView) && !['portal', 'reports', 'settings', 'workspace'].includes(smartView)
+  if (!invite && smartViews.has(smartView) && (portal || user) && !noTeamPersonal) {
     // 다른 팀으로 바꾸면 이전 팀 업무가 남지 않도록 화면을 새로 그립니다.
     return <Smartwork key={'team-' + (user?.id ?? 'signed-out') + '-' + (viewTeam ?? 'own')} currentView={smartView as View} {...common}
       members={members} navigate={next => navigate(next === 'portal' ? 'portal' : `smart-${next}`)} switchWorkspace={() => navigate('personal-calendar')}
@@ -300,11 +303,11 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
       teams={viewAll ? teams : undefined} ownTeamId={user?.teamId ?? undefined} selectTeam={id => setSelectedTeam(id === user?.teamId ? undefined : id)} />
   }
   // 개인 워크스페이스도 같은 캘린더 화면을 쓰고, 데이터는 본인만 접근하는 personal API에서 읽습니다. 보고서는 팀 공간에만 있습니다.
-  const personalView = view.startsWith('personal-') ? view.slice(9) : ''
+  const personalView = view.startsWith('personal-') ? view.slice(9) : noTeamPersonal ? smartView : ''
   if (!invite && user && smartViews.has(personalView) && !['portal', 'reports'].includes(personalView)) {
     return <Smartwork key={'personal-' + user.id} personal currentView={personalView as View} {...common} members={members}
-      navigate={next => navigate(next === 'portal' ? 'portal' : next === 'workspace' ? 'workspaces' : `personal-${next}`)}
-      switchWorkspace={() => viewTeamCalendar(undefined)} reports={null} workspacePanel={workspacePanel} settingsPanel={settingsPanel} openDetail={navigate}
+      navigate={next => navigate(next === 'portal' ? 'portal' : next === 'workspace' ? 'workspaces' : next === 'reports' ? 'team-reports' : `personal-${next}`)}
+      switchWorkspace={() => viewTeamCalendar(user.teamId ? undefined : selectedTeam ?? teams[0]?.id)} reports={null} workspacePanel={workspacePanel} settingsPanel={settingsPanel} openDetail={navigate}
       teamName={user.teamName} teamKind={user.teamKind} teams={viewAll ? teams : undefined} ownTeamId={user.teamId ?? undefined}
       selectTeam={id => viewTeamCalendar(id === user.teamId ? undefined : id)} />
   }

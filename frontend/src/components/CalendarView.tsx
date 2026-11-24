@@ -2,28 +2,25 @@ import { useContext } from 'react'
 import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Plus } from 'lucide-react'
 import { CategoryBadge } from './SharedBadges'
 import { KindContext } from './kind-context'
-import { categoryLabel, dateKey, overdueDays, overlaps, shiftDate, type Task } from './smartwork-data'
+import { calendarGrid, calendarStep, categoryLabel, overdueDays, overlaps, shiftDate, type Task } from './smartwork-data'
 
 export type CalendarMode = 'month' | 'week' | 'day'
 const modes = { month: '월', week: '주', day: '일' }
 const weekdays = ['일', '월', '화', '수', '목', '금', '토']
 const monthLabel = new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', timeZone: 'UTC' })
 
-export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, open, create, today, readOnly = false }: {
+// space: 월·주·일 왼쪽의 팀/개인 전환입니다. 팀이 없는 사람(대표 등)은 개인만 쓰고, 전사 조회 권한이 있으면 팀(조회 전용)도 고릅니다.
+export type CalendarSpace = { personal: boolean; canTeam: boolean; switchTo: (personal: boolean) => void }
+const shortName = (name: string) => name.replace(/\s*\(.*\)$/, '')
+
+export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, open, create, today, readOnly = false, space }: {
   cursor: string; setCursor: (date: string) => void; mode: CalendarMode; setMode: (mode: CalendarMode) => void
-  tasks: Task[]; open: (task: Task) => void; create: (date: string) => void; today: string; readOnly?: boolean
+  tasks: Task[]; open: (task: Task) => void; create: (date: string) => void; today: string; readOnly?: boolean; space?: CalendarSpace
 }) {
   const kind = useContext(KindContext)
-  const [year, month] = cursor.split('-').map(Number)
-  const first = new Date(Date.UTC(year, month - 1, 1))
-  const length = new Date(Date.UTC(year, month, 0)).getUTCDate()
-  const firstKey = mode === 'month' ? shiftDate(dateKey(first), -first.getUTCDay())
-    : mode === 'week' ? shiftDate(cursor, -new Date(cursor).getUTCDay()) : cursor
-  const count = mode === 'month' ? Math.ceil((length + first.getUTCDay()) / 7) * 7 : mode === 'week' ? 7 : 1
-
-  function move(direction: number) {
-    setCursor(mode === 'month' ? dateKey(new Date(Date.UTC(year, month - 1 + direction, 1))) : shiftDate(cursor, direction * count))
-  }
+  const { first, firstKey, count } = calendarGrid(cursor, mode)
+  const showOwner = !space?.personal
+  const move = (direction: number) => setCursor(calendarStep(cursor, mode, direction))
 
   return <section className="sw-card sw-calendar" aria-label="영업 캘린더">
     <header className="sw-calendar-tools">
@@ -36,6 +33,10 @@ export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, 
         <h2>{mode === 'day' ? cursor : monthLabel.format(first)}</h2>
       </div>
       <div className="sw-toolbar">
+        {space && <div className="sw-mode sw-space-mode" role="group" aria-label="캘린더 전환">
+          {space.canTeam && <button type="button" aria-pressed={!space.personal} onClick={() => { if (space.personal) space.switchTo(false) }}>팀</button>}
+          <button type="button" aria-pressed={space.personal} onClick={() => { if (!space.personal) space.switchTo(true) }}>개인</button>
+        </div>}
         <div className="sw-mode" aria-label="캘린더 보기">{(Object.keys(modes) as CalendarMode[]).map(value =>
           <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>{modes[value]}</button>)}</div>
         {!readOnly && <button className="sw-primary" type="button" onClick={() => create(cursor)}><Plus size={16} />새 업무 등록</button>}
@@ -55,9 +56,10 @@ export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, 
             {list.map(task => {
               const late = overdueDays(task), done = task.status === '완료', label = categoryLabel(task.category, kind)
               return <button className={`sw-event sw-event-${done ? 'done' : task.category}${late > 0 ? ' sw-event-overdue' : ''}`} key={task.id} type="button"
-                onClick={() => open(task)} title={`${label} · ${task.company || task.title}${done ? ' · 완료' : ''}`}>
+                onClick={() => open(task)} title={`${label} · ${task.company || task.title}${showOwner && task.assigneeName ? ' · 담당자 ' + task.assigneeName : ''}${done ? ' · 완료' : ''}`}>
                 <span className="sw-event-cat">{late > 0 ? <CircleAlert size={13} aria-hidden="true" /> : done ? <CircleCheck size={13} aria-hidden="true" /> : <i aria-hidden="true" />}{done ? '완료' : label}</span>
                 <span className="sw-event-name">{task.company || task.title}{late > 0 && ` (D+${late})`}</span>
+                {showOwner && task.assigneeName && <span className="sw-event-owner">담당자 {shortName(task.assigneeName)}</span>}
               </button>
             })}
           </div>
@@ -66,7 +68,7 @@ export default function CalendarView({ cursor, setCursor, mode, setMode, tasks, 
     </div>
     <div className="sw-date-list">
       <strong>{cursor} 업무</strong>
-      {tasks.filter(task => overlaps(task, cursor)).map(task => <button key={task.id} type="button" onClick={() => open(task)}><CategoryBadge category={task.category} /> {task.company || task.title}</button>)}
+      {tasks.filter(task => overlaps(task, cursor)).map(task => <button key={task.id} type="button" onClick={() => open(task)}><CategoryBadge category={task.category} /> {task.company || task.title}{showOwner && task.assigneeName && <small> · {shortName(task.assigneeName)}</small>}</button>)}
       {!tasks.some(task => overlaps(task, cursor)) && <p>등록된 업무가 없습니다.</p>}
     </div>
   </section>

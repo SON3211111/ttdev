@@ -89,7 +89,9 @@ export async function users(db, request, path, user) {
   requireAdmin(user)
   if (!path.length && request.method === 'GET') {
     return Response.json(await query(db, `SELECT ${accountColumns}
-      FROM team_users u LEFT JOIN teams t ON t.id=u.team_id ORDER BY t.sort_order,CASE WHEN u.role='LEAD' THEN 0 ELSE 1 END,u.name,u.id`))
+      FROM team_users u LEFT JOIN teams t ON t.id=u.team_id ORDER BY CASE WHEN u.team_id IS NULL THEN 0 ELSE 1 END,t.sort_order,
+        CASE u.title WHEN N'대표' THEN 0 WHEN N'본부장' THEN 1 WHEN N'팀장' THEN 2 ELSE 3 END,
+        CASE WHEN u.role='LEAD' THEN 0 ELSE 1 END,u.name,u.id`))
   }
   if (path.length === 1 && path[0] === 'history' && request.method === 'GET') {
     const rows = await query(db, `SELECT TOP (100) h.id,a.name AS actor,b.name AS target,h.changed_at AS changedAt,h.changes

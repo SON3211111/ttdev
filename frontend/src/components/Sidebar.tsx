@@ -10,23 +10,23 @@ const links = [
 ] as const
 
 // 와이어프레임처럼 사이드바 맨 위에서 팀 공간과 개인 공간을 전환합니다. 업체 관리는 영업형 팀에만, 보고서는 팀 공간에만 있습니다.
-export default function Sidebar({ view, navigate, alerts, overdue, todayCount = 0, completedCount = 0, open, close, personal, switchWorkspace, teamName, userName, showClients,
+export default function Sidebar({ view, navigate, alerts, overdue, todayCount = 0, completedCount = 0, open, close, personal, teamName, userName, showClients,
   teams, currentTeamId, ownTeamId, selectTeam }: {
   view: View; navigate: (view: View) => void; alerts: number; overdue: number; todayCount?: number; completedCount?: number; open: boolean; close: () => void
-  personal: boolean; switchWorkspace: () => void; teamName?: string; userName?: string; showClients: boolean
+  personal: boolean; teamName?: string; userName?: string; showClients: boolean
   teams?: Team[]; currentTeamId?: number; ownTeamId?: number; selectTeam: (id: number) => void
 }) {
   const own = teams?.find(team => team.id === ownTeamId)
   const others = teams?.filter(team => team.id !== ownTeamId) ?? []
-  const visible = links.filter(([id]) => (!personal || id !== 'reports') && (showClients || id !== 'clients'))
+  const visible = links.filter(([id]) => showClients || id !== 'clients')
   return <><aside className={`sw-sidebar ${open ? 'sw-sidebar-open' : ''}`} aria-label="워크스페이스 메뉴">
     <div className="sw-sidebar-brand"><button type="button" onClick={() => { navigate('portal'); close() }}><Brand short /></button>
       <button type="button" className="sw-icon-button sw-mobile-menu" onClick={close} aria-label="메뉴 닫기"><X size={18} /></button>
     </div>
-    <div className="sw-space-switch" role="group" aria-label="공간 전환">
-      <button type="button" aria-pressed={!personal} onClick={() => { if (personal) switchWorkspace() }}><i aria-hidden="true" />팀 공간 ({teamName ?? '팀'})</button>
-      <button type="button" aria-pressed={personal} onClick={() => { if (!personal) switchWorkspace() }}><i aria-hidden="true" />개인 공간 ({userName ?? '나'})</button>
-      {teams && teams.length > 1 && <label className="sw-team-select"><span>팀 공간 선택</span>
+    {/* 팀/개인 전환은 캘린더의 팀·개인 버튼으로 합니다. 전사 조회 권한이 있으면 볼 팀을 여기서 고릅니다. */}
+    <div className="sw-space-switch">
+      <p className="sw-space-name"><i aria-hidden="true" />{personal ? '개인 캘린더 (' + (userName ?? '나') + ')' : teamName ?? '팀'}</p>
+      {teams && teams.length > 1 && <label className="sw-team-select"><span>팀 선택</span>
         <select aria-label="팀 공간 선택" value={personal ? '' : currentTeamId ?? ''} onChange={event => selectTeam(Number(event.target.value))}>
           {personal && <option value="" disabled>팀을 고르세요</option>}
           {own && <optgroup label="내 팀"><option value={own.id}>{own.name}</option></optgroup>}

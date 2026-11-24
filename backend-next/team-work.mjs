@@ -112,13 +112,43 @@ async function create(db, input, user, scope, sourceQuoteId = null) {
   return Response.json((await readWork(db, 'w.id=@id', { id }, false, scope))[0], { status: 201 })
 }
 
-async function list(db, params, scope) {
-  queryKeys(params, ['month', 'assignee', 'category', 'status', 'search', 'scope'])
-  const range = params.get('scope')
-  if (range && (range !== 'all' || params.has('month'))) invalid()
+// 목록 범위(한 가지만): scope=all 전체(업체 관리), scope=summary 이번 달 현황(KPI·오늘·알림·지연·이번 달 완료),
+// from·to 기간과 겹치는 업무(캘린더에 보이는 범위), completed=YYYY-MM|all 그 달(또는 전체)에 완료한 업무, month(기본 이번 달).
+function rangeCondition(params, bindings) {
+  const range = params.get('scope'), keys = ['scope', 'month', 'from', 'to', 'completed'].filter(key => params.has(key))
+  if (keys.length > (params.has('from') ? 2 : 1) || (range && !['all', 'summary'].includes(range))) invalid()
+  if (range === 'all') return '1=1'
+  if (range === 'summary') {
+    // 사용자 결정(2026-11-24): 캘린더 화면의 현황 숫자와 목록(오늘·이번 주·기한 초과·완료·알림)은 이번 달 업무만 셉니다.
+    // 이번 달과 기간이 겹치는 업무와 이번 달에 완료한 업무만 읽으므로, 지난달 이전에 마감한 미완료 업무나
+    // 다음 달에 시작하는 업무(이번 주 예정·미리 알림)는 빠집니다.
+    const [start, end] = calendarMonth(new URLSearchParams({ month: seoulToday().slice(0, 7) }))
+    Object.assign(bindings, { start, end })
+    return '(w.start_date<=@end AND w.due_date>=@start OR w.completed_date BETWEEN @start AND @end)'
+  }
+  if (params.has('completed')) {
+    const month = params.get('completed')
+    if (month === 'all') return "w.status='DONE'"
+    const [start, end] = calendarMonth(new URLSearchParams({ month }))
+    Object.assign(bindings, { start, end })
+    return "w.status='DONE' AND w.completed_date BETWEEN @start AND @end"
+  }
+  if (params.has('from') || params.has('to')) {
+    const start = date(params.get('from'), 'from'), end = date(params.get('to'), 'to')
+    if (end < start || Date.parse(end) - Date.parse(start) > 62 * 86_400_000) invalid()
+    Object.assign(bindings, { start, end })
+    // 기간 안에 완료한 업무도 함께 읽어, 캘린더에서 본 달의 완료 건수를 셀 수 있게 합니다.
+    return '(w.start_date<=@end AND w.due_date>=@start OR w.completed_date BETWEEN @start AND @end)'
+  }
   const [start, end] = calendarMonth(new URLSearchParams({ month: params.get('month') ?? seoulToday().slice(0, 7) }))
-  const bindings = range === 'all' ? {} : { start, end }
-  const conditions = [range === 'all' ? '1=1' : 'w.start_date<=@end AND w.due_date>=@start']
+  Object.assign(bindings, { start, end })
+  return 'w.start_date<=@end AND w.due_date>=@start'
+}
+
+async function list(db, params, scope) {
+  queryKeys(params, ['month', 'from', 'to', 'completed', 'assignee', 'category', 'status', 'search', 'scope'])
+  const bindings = {}
+  const conditions = [rangeCondition(params, bindings)]
   if (params.has('assignee')) {
     bindings.assignee = workId(params.get('assignee'))
     conditions.push('w.assignee_id=@assignee')

@@ -43,6 +43,21 @@ export function shiftDate(value: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days)
   return dateKey(date)
 }
+// 캘린더 화면에 보이는 칸: 월 보기는 그 달 1일이 든 주 일요일부터 말일이 든 주 토요일까지, 주 보기는 일~토, 일 보기는 하루입니다.
+export function calendarGrid(cursor: string, mode: 'month' | 'week' | 'day') {
+  const [year, month] = cursor.split('-').map(Number)
+  const first = new Date(Date.UTC(year, month - 1, 1))
+  const length = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const firstKey = mode === 'month' ? shiftDate(dateKey(first), -first.getUTCDay())
+    : mode === 'week' ? shiftDate(cursor, -new Date(cursor).getUTCDay()) : cursor
+  const count = mode === 'month' ? Math.ceil((length + first.getUTCDay()) / 7) * 7 : mode === 'week' ? 7 : 1
+  return { year, month, first, firstKey, count, lastKey: shiftDate(firstKey, count - 1) }
+}
+// 캘린더의 이전(-1)·다음(1) 기간으로 옮긴 커서입니다. 월 보기는 그 달 1일, 주·일 보기는 7일·1일씩 옮깁니다.
+export function calendarStep(cursor: string, mode: 'month' | 'week' | 'day', direction: number) {
+  const { year, month, count } = calendarGrid(cursor, mode)
+  return mode === 'month' ? dateKey(new Date(Date.UTC(year, month - 1 + direction, 1))) : shiftDate(cursor, direction * count)
+}
 export function overlaps(task: Task, start: string, end = start) {
   return task.start <= end && task.end >= start
 }

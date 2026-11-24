@@ -177,17 +177,17 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
           return <tr key={account.id}>
           <td>{account.name}</td><td>{account.email}</td>
           <td>{account.id === user.id ? <span>{account.teamName} · {account.title} · 내 계정</span>
-            : <form className="ttech-inline-form" onSubmit={event => saveAccount(event, account)} aria-label={account.name + ' 소속 변경'}>
+            : <form className="ttech-inline-form ttech-account-form" onSubmit={event => saveAccount(event, account)} aria-label={account.name + ' 소속 변경'}>
               <select name="title" aria-label={account.name + ' 직급'} value={title}
                 onChange={event => setPickedTitles(current => ({ ...current, [account.id]: event.target.value as Title }))}>{titles.map(title => {
                 const holder = uniqueTitles.includes(title) && accounts.find(other => other.title === title && other.id !== account.id)
                 return <option key={title} value={title} disabled={!!holder}>{title}{holder ? ` (${holder.name})` : ''}</option>
               })}</select>
-              {uniqueTitles.includes(title) ? <span>소속 회사</span>
-                : <select name="teamId" aria-label={account.name + ' 팀'} required defaultValue={account.teamId ?? ''}><option value="" disabled>팀 선택</option>{teamOptions}</select>}
-              {title === '본부장' && <select name="managedTeamId" aria-label={account.name + ' 담당 팀'} defaultValue={account.managedTeamId ?? ''}>
+              {title === '본부장' ? <select name="managedTeamId" aria-label={account.name + ' 담당 팀'} defaultValue={account.managedTeamId ?? ''}>
                 <option value="">담당 팀 없음</option>{teamOptions}
-              </select>}
+              </select>
+                : uniqueTitles.includes(title) ? <span>소속 회사</span>
+                : <select name="teamId" aria-label={account.name + ' 팀'} required defaultValue={account.teamId ?? ''}><option value="" disabled>팀 선택</option>{teamOptions}</select>}
               <button type="submit" disabled={pending}>저장</button>
             </form>}</td>
           <td>{account.id === user.id ? '활성' : <button type="button" className="ttech-link" disabled={pending}
