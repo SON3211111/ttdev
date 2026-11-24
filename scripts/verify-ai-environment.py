@@ -66,10 +66,10 @@ def main():
             assert matches and matches[0]["id"] == 1, "Unexpected top sample"
             embedding_seconds = round(time.perf_counter() - start, 2)
             generation_start = time.perf_counter()
-            # 프론트 주소로 질문을 보내 Vite 전달 → Java → Python → Ollama 연결을 한 번에 검사합니다.
-            generated = request("POST", "http://frontend:5173/api/ai/generate", json={
+            # AI 서버에 직접 질문해 Ollama 생성 연결을 검사합니다.
+            generated = request("POST", "http://ai:8000/generate", json={
                 "prompt": "Reply with only OK.",
-            }, headers={"Host": "localhost:5173"})
+            })
             assert generated.get("response", "").strip(), "Empty generation"
             print(json.dumps({
                 "status": "PASS", "embedding_model": model,

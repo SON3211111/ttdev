@@ -14,6 +14,9 @@ async function connect() {
     password: process.env.SQLSERVER_PASSWORD,
     options: { encrypt: true, trustServerCertificate: process.env.SQLSERVER_TRUST_CERTIFICATE === 'true' },
   }
+  if (process.env.SQLSERVER_AUTO_MIGRATE === 'false') {
+    return new sql.ConnectionPool({ ...config, database: databaseName }).connect()
+  }
   const master = await new sql.ConnectionPool({ ...config, database: 'master' }).connect()
   try {
     await master.request().batch(`IF DB_ID(N'${databaseName}') IS NULL CREATE DATABASE [${databaseName}]`)
@@ -22,14 +25,12 @@ async function connect() {
   }
   const pool = await new sql.ConnectionPool({ ...config, database: databaseName }).connect()
   try {
-    const schema = await readFile(join(process.cwd(), 'schema.sql'), 'utf8')
     const teamSchema = await readFile(join(process.cwd(), 'team-schema.sql'), 'utf8')
     const workSchema = await readFile(join(process.cwd(), 'team-work.sql'), 'utf8')
     const reportsSchema = await readFile(join(process.cwd(), 'team-reports.sql'), 'utf8')
     await transaction(pool, async tx => {
       await query(tx, "DECLARE @lock int; EXEC @lock = sp_getapplock @Resource=N'appdb-schema', @LockMode='Exclusive'; IF @lock < 0 THROW 50001, 'Schema lock failed', 1;")
-      const [migration] = await query(tx, "SELECT OBJECT_ID(N'dbo.records', N'U') AS records, OBJECT_ID(N'dbo.team_users', N'U') AS teamUsers")
-      if (!migration.records) await tx.request().batch(schema)
+      const [migration] = await query(tx, "SELECT OBJECT_ID(N'dbo.team_users', N'U') AS teamUsers")
       if (!migration.teamUsers) await tx.request().batch(teamSchema)
       const [work] = await query(tx, "SELECT OBJECT_ID(N'dbo.team_work', N'U') AS id")
       if (!work.id) await tx.request().batch(workSchema)
@@ -53,7 +54,68 @@ async function connect() {
         ALTER TABLE dbo.team_meetings ADD work_ids nvarchar(max) NOT NULL CONSTRAINT team_meetings_work_default DEFAULT N'[]',
         approval_status varchar(10) NOT NULL CONSTRAINT team_meetings_approval_default DEFAULT 'DRAFT'
         CONSTRAINT team_meetings_approval_check CHECK (approval_status IN ('DRAFT','PENDING','APPROVED'))`)
-      await migrateOrganization(tx)
+      await tx.request().batch(`IF COL_LENGTH('dbo.team_meetings','approved_by') IS NULL
+        ALTER TABLE dbo.team_meetings ADD approved_by int NULL REFERENCES dbo.team_users(id), approved_at datetime2 NULL`)
+      const [organization] = await query(tx, "SELECT COL_LENGTH('dbo.team_users','managed_team_id') AS currentModel")
+      if (!organization.currentModel) await migrateOrganization(tx)
+      await tx.request().batch(`IF COL_LENGTH('dbo.team_work','end_time') IS NULL
+        ALTER TABLE dbo.team_work ADD end_time time(0) NULL,
+          created_at datetime2 NULL CONSTRAINT team_work_created_default DEFAULT SYSUTCDATETIME();
+      IF OBJECT_ID(N'dbo.team_work_history', N'U') IS NULL CREATE TABLE dbo.team_work_history (
+        id bigint IDENTITY PRIMARY KEY,
+        work_id int NOT NULL REFERENCES dbo.team_work(id) ON DELETE CASCADE,
+        actor_id int NOT NULL REFERENCES dbo.team_users(id),
+        changed_at datetime2 NOT NULL CONSTRAINT team_work_history_date_default DEFAULT SYSUTCDATETIME(),
+        changes nvarchar(2000) NOT NULL
+      );
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.team_work_history') AND name='team_work_history_work')
+        CREATE INDEX team_work_history_work ON dbo.team_work_history(work_id,id DESC)`)
+      await tx.request().batch(`IF OBJECT_ID(N'dbo.team_work_files', N'U') IS NULL CREATE TABLE dbo.team_work_files (
+        work_id int NOT NULL REFERENCES dbo.team_work(id) ON DELETE CASCADE,
+        id int IDENTITY NOT NULL,
+        uploaded_by int NOT NULL REFERENCES dbo.team_users(id),
+        filename nvarchar(140) NOT NULL,
+        content_type varchar(32) NOT NULL,
+        content varbinary(max) NOT NULL,
+        created_at datetime2 NOT NULL CONSTRAINT team_work_files_created_default DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT team_work_files_pk PRIMARY KEY(work_id,id)
+      )`)
+      await tx.request().batch(`IF COL_LENGTH('dbo.team_users', 'is_active') IS NULL
+        ALTER TABLE dbo.team_users ADD is_active bit NOT NULL CONSTRAINT team_users_active_default DEFAULT 1`)
+      if (!organization.currentModel) {
+        await tx.request().batch(`ALTER TABLE dbo.team_users ADD managed_team_id int NULL REFERENCES dbo.teams(id);
+          ALTER TABLE dbo.team_users DROP CONSTRAINT team_users_member_role;
+          DROP INDEX team_lead_per_team ON dbo.team_users;
+          DROP INDEX team_users_one_lead_title ON dbo.team_users;
+          ALTER TABLE dbo.team_users ALTER COLUMN team_id int NULL;`)
+        await tx.request().batch(`UPDATE dbo.team_users SET managed_team_id=team_id WHERE role='LEAD';
+          UPDATE dbo.team_users SET team_id=NULL WHERE title IN (N'대표',N'본부장');
+          IF EXISTS (SELECT 1 FROM dbo.team_users WHERE is_active=1 AND is_admin=1 AND title IN (N'대표',N'본부장'))
+            UPDATE dbo.team_users SET is_admin=0 WHERE title NOT IN (N'대표',N'본부장');
+          ALTER TABLE dbo.team_users ADD CONSTRAINT team_users_membership CHECK (
+            (title=N'대표' AND role='MEMBER' AND team_id IS NULL AND managed_team_id IS NULL) OR
+            (title=N'본부장' AND role='MEMBER' AND team_id IS NULL) OR
+            (title=N'프로' AND role='MEMBER' AND team_id IS NOT NULL AND managed_team_id IS NULL) OR
+            (title=N'팀장' AND role='LEAD' AND team_id IS NOT NULL AND managed_team_id IS NOT NULL AND managed_team_id=team_id));
+          CREATE UNIQUE INDEX team_managed_once ON dbo.team_users(managed_team_id) WHERE managed_team_id IS NOT NULL;`)
+      }
+      await tx.request().batch(`IF OBJECT_ID(N'dbo.team_org_history', N'U') IS NULL CREATE TABLE dbo.team_org_history (
+        id int IDENTITY PRIMARY KEY, actor_id int NOT NULL REFERENCES dbo.team_users(id),
+        target_id int NOT NULL REFERENCES dbo.team_users(id), changes nvarchar(2000) NOT NULL,
+        changed_at datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+      )`)
+      await tx.request().batch(`IF OBJECT_ID(N'dbo.team_reports_team_pk', N'PK') IS NULL
+      BEGIN
+        DECLARE @oldPk sysname = (SELECT name FROM sys.key_constraints
+          WHERE parent_object_id=OBJECT_ID(N'dbo.team_reports') AND type='PK');
+        IF @oldPk IS NOT NULL
+        BEGIN
+          DECLARE @dropPk nvarchar(300) = N'ALTER TABLE dbo.team_reports DROP CONSTRAINT ' + QUOTENAME(@oldPk);
+          EXEC sys.sp_executesql @dropPk;
+        END
+        ALTER TABLE dbo.team_reports ALTER COLUMN team_id int NOT NULL;
+        ALTER TABLE dbo.team_reports ADD CONSTRAINT team_reports_team_pk PRIMARY KEY (team_id, week_start, user_id, kind);
+      END`)
     })
     return pool
   } catch (error) {
@@ -174,7 +236,8 @@ export async function database() {
 export async function query(source, statement, params = {}) {
   const request = source.request()
   for (const [name, value] of Object.entries(params)) {
-    request.input(name, typeof value === 'number' ? sql.BigInt : sql.NVarChar(sql.MAX), value)
+    const type = Buffer.isBuffer(value) ? sql.VarBinary(sql.MAX) : typeof value === 'number' ? sql.BigInt : sql.NVarChar(sql.MAX)
+    request.input(name, type, value)
   }
   return (await request.query(statement)).recordset
 }

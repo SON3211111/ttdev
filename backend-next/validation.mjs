@@ -60,23 +60,6 @@ export function calendarMonth(params) {
   return [month + '-01', month + '-' + last]
 }
 
-export function recordInput(input, type, today = seoulToday()) {
-  const title = text(input.title, 'title', 100)
-  const content = text(input.content, 'content', 10000, true).replace(/\r\n?/g, '\n')
-  const recordDate = date(input.recordDate, 'recordDate')
-  if (title && type === 'MEMO') validate('title')
-  if (recordDate > today) validate('recordDate')
-  return { title, content, recordDate }
-}
-
-export function pageNumber(value, fallback, field, min, max) {
-  if (value === null) return fallback
-  if (!/^\d+$/.test(value)) validate(field)
-  const number = Number(value)
-  if (number < min || number > max) validate(field)
-  return number
-}
-
 export async function body(request, allowed) {
   const value = await request.json().catch(() => invalid())
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid()

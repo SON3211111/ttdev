@@ -1,6 +1,6 @@
 import { Bell, CircleAlert, ClipboardList, CircleCheck } from 'lucide-react'
 import { CategoryBadge, OverdueBadge } from './SharedBadges'
-import { overdueDays, type Task, type View } from './smartwork-data'
+import { overdueDays, workCode, type Task, type View } from './smartwork-data'
 
 export function WorkList({ tasks, open, toggle, kind, canEdit, pendingId }: {
   tasks: Task[]; open: (task: Task) => void; toggle: (task: Task) => void; kind: 'today' | 'notifications' | 'overdue' | 'completed'
@@ -9,7 +9,7 @@ export function WorkList({ tasks, open, toggle, kind, canEdit, pendingId }: {
   return tasks.length ? <ul className="sw-work-list">{tasks.map(task => <li key={task.id}>
     <button type="button" className="sw-work-row" onClick={() => open(task)}>
       {kind !== 'overdue' && <time>{task.time ?? '—'}</time>}
-      <CategoryBadge category={task.category} /><span><strong>{task.company || task.title}</strong><small>{kind === 'notifications' ? task.alerts.join(' · ') : task.title || task.notes || task.end}</small></span>
+      <CategoryBadge category={task.category} /><span><strong>{task.company || task.title}</strong><small>{workCode(task.id)} · {kind === 'notifications' ? task.alerts.join(' · ') : task.title || task.notes || task.end}</small></span>
       {kind === 'overdue' && <OverdueBadge days={overdueDays(task)} />}
     </button>
     {kind === 'today' && canEdit(task) && <button type="button" className="sw-icon-button" aria-label={`${task.company || task.title} 완료 상태 전환`} disabled={pendingId === task.id} aria-pressed={task.status === '완료'} onClick={() => toggle(task)}><CircleCheck size={17} /></button>}

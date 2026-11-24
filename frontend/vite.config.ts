@@ -19,7 +19,7 @@ export default defineConfig({
 
     proxy: {
       '/api': {
-        target: 'http://backend:8080',
+        target: process.env.API_TARGET ?? 'http://backend:8080',
         changeOrigin: true,
       },
     },

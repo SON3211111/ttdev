@@ -5,10 +5,12 @@ import Sidebar from '../components/Sidebar'
 import TopHeader from '../components/TopHeader'
 import CalendarView, { type CalendarMode } from '../components/CalendarView'
 import TaskDrawer, { type DrawerState } from '../components/TaskDrawer'
+import WorkAttachments from '../components/WorkAttachments'
+import LinkedMeetings from '../components/LinkedMeetings'
 import BottomWidgets, { WorkList } from '../components/BottomWidgets'
 import { ClientsView } from '../components/SmartworkViews'
 import { KindContext } from '../components/kind-context'
-import { categoriesByKind, categoryLabel, overdueDays, overlaps, reminderDue, seoulDate, shiftDate, type Task, type View, type Category, type WorkStatus } from '../components/smartwork-data'
+import { categoriesByKind, categoryLabel, overdueDays, overlaps, reminderDue, seoulDate, shiftDate, type Task, type View, type Category, type WorkStatus, type WorkDetailLocation } from '../components/smartwork-data'
 import { teamGet, teamWrite, withTeam, type Team, type TeamKind, type TeamUser } from '../api/team'
 import './Smartwork.css'
 
@@ -22,12 +24,14 @@ type ApiWork = {
   id: number; category: keyof typeof categories; status: keyof typeof statuses; company: string | null
   startDate: string; dueDate: string; notes: string | null; alerts: string[]; repeat: string; time: string | null
   title: string; assigneeId: number; assigneeName: string; completedDate: string | null
+  endTime: string | null; createdAt: string | null; createdByName: string
   sourceQuoteId: number | null
 }
 function fromWork(row: ApiWork): Task {
   return { id: String(row.id), category: categories[row.category], status: statuses[row.status], company: row.company ?? '',
     start: row.startDate, end: row.dueDate, notes: row.notes ?? '', alerts: row.alerts, repeat: row.repeat,
     time: row.time ?? undefined, title: row.title, assigneeId: row.assigneeId, assigneeName: row.assigneeName,
+    endTime: row.endTime ?? undefined, createdAt: row.createdAt ?? undefined, createdByName: row.createdByName,
     completedDate: row.completedDate ?? undefined, sourceQuoteId: row.sourceQuoteId ?? undefined }
 }
 const categoryToApi = Object.fromEntries(Object.entries(categories).map(([api, value]) => [value, api])) as Record<Category, string>
@@ -38,11 +42,12 @@ const emptyFilters = { from: '', to: '', company: '', category: '', status: '' }
 // 기본은 내 팀(teamName)입니다. 관리자·대표·본부장이 다른 팀을 고르면 teamId(?team=)로 그 팀을 읽기 전용(readOnly)으로 봅니다.
 // teams·ownTeamId·selectTeam은 사이드바의 팀 공간 전환에 씁니다. teamKind는 업무 구분 선택지와 라벨, 업체 관리 메뉴 표시를 정합니다.
 export default function Smartwork({ currentView, navigate, openWorkspace, switchWorkspace, user, members, logout, reports, personal = false,
-  teamName, teamId, teamKind = 'SALES', teams, ownTeamId, selectTeam, readOnly = false, workspacePanel, settingsPanel }: {
+  teamName, teamId, teamKind = 'SALES', teams, ownTeamId, selectTeam, readOnly = false, workspacePanel, settingsPanel, detailWorkId, openDetail }: {
   currentView: View; navigate: (view: View) => void; openWorkspace: () => void; switchWorkspace: () => void; user?: TeamUser | null
   members: { id: number; name: string }[]; logout: () => void; reports: ReactNode; personal?: boolean
   teamName?: string; teamId?: number; teamKind?: TeamKind; teams?: Team[]; ownTeamId?: number; selectTeam?: (id: number) => void; readOnly?: boolean
   workspacePanel?: ReactNode; settingsPanel?: ReactNode
+  detailWorkId?: string; openDetail: (view: WorkDetailLocation) => void
 }) {
   const [tasks, setTasks] = useState<Task[]>()
   const [search, setSearch] = useState('')
@@ -52,6 +57,8 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
   const [cursor, setCursor] = useState(seoulDate)
   const [mode, setMode] = useState<CalendarMode>('month')
   const [drawer, setDrawer] = useState<DrawerState>()
+  const [detailTask, setDetailTask] = useState<Task>()
+  const [detailVersion, setDetailVersion] = useState(0)
   const [menu, setMenu] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
@@ -59,6 +66,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
   const portal = currentView === 'portal'
   const todayDate = seoulDate()
   const userId = user?.id
+  const workspaceTeam = teamId ?? user?.teamId
   // 팀 공간은 /work, 개인 공간은 본인만 접근하는 /personal/work를 사용합니다.
   const workPath = personal ? 'personal/work' : 'work'
   const viewOnly = readOnly && !personal
@@ -70,7 +78,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
   // 다른 팀원이 바꾼 업무가 보이도록 화면에 돌아올 때와 1분마다 다시 읽습니다.
   // 새 요청은 이전 요청을 취소하므로, 저장 직후 늦게 도착한 이전 목록이 저장 결과를 덮어쓰지 않습니다.
   useEffect(() => {
-    if (!userId) return
+    if (!userId || detailWorkId || (!personal && !workspaceTeam)) return
     let controller = new AbortController()
     const load = () => {
       controller.abort()
@@ -95,7 +103,17 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
-  }, [userId, listPath, viewOnly, teamId])
+  }, [userId, listPath, viewOnly, teamId, detailWorkId, personal, workspaceTeam])
+
+  useEffect(() => {
+    if (!detailWorkId) return
+    const controller = new AbortController()
+    teamGet<ApiWork>(withTeam(workPath + '/' + detailWorkId, teamId), controller.signal)
+      .then(row => setDetailTask(fromWork(row))).catch(error => {
+        if (!controller.signal.aborted) setError(error.message)
+      })
+    return () => controller.abort()
+  }, [detailWorkId, workPath, teamId])
 
   // 같은 화면 틀 안에서 메뉴(캘린더·워크스페이스·설정 등)를 옮길 때도 최신 업무를 다시 읽습니다.
   useEffect(() => {
@@ -150,6 +168,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
 
   async function writeTask(task: Task, source?: Task) {
     const common = { title: task.title || task.company, startDate: task.start, dueDate: task.end, time: task.time || null,
+      endTime: task.endTime || null,
       alerts: task.alerts, repeat: task.repeat, assigneeId: !personal && user?.role === 'LEAD' ? task.assigneeId : undefined }
     const payload = source ? common : { ...common, company: task.company || null, category: categoryToApi[task.category],
       status: statusToApi[task.status], notes: task.notes }
@@ -160,10 +179,17 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
       return items.some(item => item.id === saved.id) ? items.map(item => item.id === saved.id ? saved : item) : [...items, saved]
     })
     refresh.current?.()
+    return saved
   }
 
   async function save(task: Task) {
-    await writeTask(task, drawer?.source)
+    const saved = await writeTask(task, drawer?.source)
+    if (detailWorkId) {
+      setDetailTask(saved)
+      setDetailVersion(value => value + 1)
+      setFeedback('업무를 저장했습니다.')
+      return
+    }
     setCursor(task.start)
     setSearch('')
     setAssignee('')
@@ -173,6 +199,25 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
   }
 
   const spaceName = personal ? '개인 공간' : (teamName ?? '팀 공간') + (viewOnly ? ' (조회)' : '')
+  function renderTask(state: DrawerState, inline = false) {
+    const task = state.task
+    return <TaskDrawer key={(task?.id ?? (state.source ? 'delivery-' + state.source.id : state.date)) + ':' + detailVersion}
+      state={state} inline={inline} dismiss={() => inline ? navigate('calendar') : setDrawer(undefined)} save={save}
+      historyPath={task && withTeam(workPath + '/' + task.id + '/history', personal ? undefined : teamId)}
+      canEdit={!task || canEdit(task)} members={!personal && !viewOnly && user?.role === 'LEAD' ? members : []}
+      openFull={task && !inline ? () => openDetail(`${personal ? 'personal-work' : 'work'}/${task.id}${!personal && teamId ? '?team=' + teamId : ''}`) : undefined}
+      openDelivery={inline ? undefined : source => setDrawer({ source, date: todayDate })}
+      openQuote={inline ? id => openDetail(`${personal ? 'personal-work' : 'work'}/${id}${!personal && teamId ? '?team=' + teamId : ''}`)
+        : id => { const quote = tasks?.find(item => item.id === String(id)); if (quote) open(quote) }}
+      remove={async id => {
+        await teamWrite(workPath + '/' + id, 'DELETE')
+        if (inline) { navigate('calendar'); return }
+        setTasks(items => items?.filter(item => item.id !== id))
+        refresh.current?.()
+        setDrawer(undefined)
+        setFeedback('업무를 삭제했습니다.')
+      }} />
+  }
   return <KindContext.Provider value={teamKind}>
     <div className={`sw-system ${portal ? 'sw-system-portal' : 'sw-system-workspace'}${drawer ? ' sw-panel-open' : ''}`}>
       {!portal && <Sidebar personal={personal} teamName={teamName} userName={user?.name} showClients={sales}
@@ -185,10 +230,16 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
         {portal ? <PortalHome navigate={changeView} openWorkspace={openWorkspace} name={user?.name} taskCount={tasks && user ? today.length : undefined} /> : <main className="sw-workspace-main">
           <span className="sr-only" role="status">{feedback}</span>
           {error && <p className="sw-error" role="alert">{error}</p>}
-          {workViews && !tasks && !error && <p role="status">업무를 불러오는 중입니다…</p>}
-          {viewOnly && currentView !== 'workspace' && <p className="sw-readonly-banner"><b>읽기 전용</b>{teamName}을(를) 보고 있습니다.
+          {(detailWorkId ? !detailTask : workViews && !tasks) && !error && <p role="status">업무를 불러오는 중입니다…</p>}
+          {viewOnly && currentView !== 'workspace' && <p className="sw-readonly-banner"><b>{currentView === 'reports' && user?.isAdmin && ['대표', '본부장'].includes(user.title) ? '조회·결재' : '읽기 전용'}</b>{teamName}을(를) 보고 있습니다.
             {ownTeamId && <button type="button" className="sw-secondary" onClick={() => selectTeam?.(ownTeamId)}>내 팀으로 돌아가기</button>}</p>}
-          {currentView === 'calendar' && <>
+          {detailWorkId && (detailTask ? <>
+            {renderTask({ date: detailTask.start, task: detailTask }, true)}
+            <WorkAttachments path={workPath + '/' + detailTask.id + '/attachments'} teamId={teamId} canEdit={canEdit(detailTask)} />
+            {!personal && <LinkedMeetings workId={detailTask.id} teamId={teamId} />}
+          </>
+            : <button type="button" className="sw-secondary" onClick={() => navigate('calendar')}>캘린더로 돌아가기</button>)}
+          {currentView === 'calendar' && !detailWorkId && <>
             <div className="sw-page-intro">{personal ? <><h1 className="sw-page-title">개인 워크스페이스</h1><span>{user?.name}님만 보는 업무 캘린더 · {todayDate}</span></>
               : <><h1 className="sw-page-title">{sales ? '영업 캘린더' : '업무 캘린더'}</h1><span>{teamName ?? '팀 워크스페이스'} · {todayDate}</span></>}
               {!personal && <label className="sw-assignee-filter">담당자 <select aria-label="담당자" value={assignee} onChange={event => setAssignee(event.target.value)}>
@@ -234,17 +285,7 @@ export default function Smartwork({ currentView, navigate, openWorkspace, switch
           </section>}
         </main>}
       </div>
-      {drawer && <TaskDrawer key={drawer.task?.id ?? (drawer.source ? 'delivery-' + drawer.source.id : drawer.date)} state={drawer} dismiss={() => setDrawer(undefined)} save={save}
-        canEdit={!drawer.task || canEdit(drawer.task)} members={!personal && user?.role === 'LEAD' ? members : []}
-        openDelivery={source => setDrawer({ source, date: todayDate })}
-        openQuote={id => { const quote = tasks?.find(item => item.id === String(id)); if (quote) open(quote) }}
-        remove={async id => {
-          await teamWrite(workPath + '/' + id, 'DELETE')
-          setTasks(items => items?.filter(item => item.id !== id))
-          refresh.current?.()
-          setDrawer(undefined)
-          setFeedback('업무를 삭제했습니다.')
-        }} />}
+      {drawer && renderTask(drawer)}
     </div>
   </KindContext.Provider>
 }

@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { canViewAll, roleLabels, teamGet, teamWrite, titleLabel, titles, withTeam, type Role, type Team, type TeamMember, type TeamSession, type TeamUser, type Title } from '../api/team'
+import { canViewAll, roleLabels, teamGet, teamWrite, titleLabel, withTeam, type Role, type Team, type TeamMember, type TeamSession, type TeamUser } from '../api/team'
 import TeamReports from './TeamReports'
 import OrgAdmin from './OrgAdmin'
 import TeamMeetings from './TeamMeetings'
 import TeamInvites from './TeamInvites'
 import WorkspaceHome from './WorkspaceHome'
 import Smartwork from './Smartwork'
-import { smartViews, type View } from '../components/smartwork-data'
+import { meetingDetailRoute, smartViews, workDetailRoute, type View, type WorkDetailLocation } from '../components/smartwork-data'
 import './TeamWorkspace.css'
 
 function message(error: unknown) {
@@ -15,25 +15,79 @@ function message(error: unknown) {
 
 type InviteInfo = { email: string; role: Role; teamName: string }
 
-// 가입(초대 수락)과 처음 설정에서는 직급을 본인이 고릅니다. 처음 설정에서는 소속 팀도 고릅니다.
-// 대표·본부장은 회사 전체에 각각 1명이라, 이미 있으면 고를 수 없게 표시합니다.
-// '팀장' 직급은 팀장 권한과 같아서 팀장으로 초대받으면 팀장으로 고정되고, 팀원으로 초대받으면 고를 수 없습니다.
-function signInFields(invite: boolean, setup: boolean, teams: { id: number; name: string }[] = [], taken: Title[] = [], inviteRole?: Role) {
-  const blocked = (title: Title) => taken.includes(title) ? ' (이미 있음)' : invite && inviteRole !== 'LEAD' && title === '팀장' ? ' (팀장 초대로만)' : ''
+function signInFields(invite: boolean, setup: boolean, session: TeamSession, inviteRole?: Role) {
+  const { setupTokenRequired } = session
   return <>
     {(invite || setup) && <label>이름<input name="name" required maxLength={80} autoComplete="name" /></label>}
     {!invite && <label>이메일<input name="email" type="email" required maxLength={254} autoComplete="email" /></label>}
     <label>비밀번호<input name="password" type="password" required minLength={invite || setup ? 12 : undefined}
       maxLength={128} autoComplete={invite || setup ? 'new-password' : 'current-password'} /></label>
-    {setup && <label>소속 팀<select name="teamId" aria-label="소속 팀" required defaultValue={teams[0]?.id}>
-      {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>}
-    {invite && inviteRole === 'LEAD' && <label>직급<select name="title" aria-label="직급" value="팀장" disabled onChange={() => undefined}><option>팀장</option></select></label>}
-    {(setup || (invite && inviteRole !== 'LEAD')) && <label>직급<select name="title" aria-label="직급" defaultValue={setup ? '팀장' : '프로'}>
-      {titles.map(title => <option key={title} value={title} disabled={!!blocked(title)}>{title}{blocked(title)}</option>)}</select></label>}
+    {setup && <p>소속 회사 · 직급 대표</p>}
+    {invite && inviteRole && <label>직급<input value={inviteRole === 'LEAD' ? '팀장' : '프로'} readOnly /></label>}
+    {setup && setupTokenRequired && <label>초기 설정 키<input name="setupToken" type="password" required maxLength={256} autoComplete="off" /></label>}
   </>
 }
 
-type WorkspacePage = 'portal' | 'team' | 'workspaces' | 'team-calendar' | 'personal-calendar' | 'team-reports' | 'team-settings' | `smart-${View}` | `personal-${View}`
+type WorkspacePage = 'portal' | 'team' | 'workspaces' | 'team-calendar' | 'personal-calendar' | 'team-reports' | 'team-settings' | `smart-${View}` | `personal-${View}` | WorkDetailLocation
+
+function ProfileSettings({ user, onChanged }: { user: TeamUser; onChanged: (user: TeamUser) => void }) {
+  const [message, setMessage] = useState('')
+  return <section className="ttech-panel">
+    <h2>내 정보</h2>
+    <p>{user.membershipTeamId ? user.teamName : '회사'} · {user.title}</p>
+    <form className="ttech-inline-form" onSubmit={async event => {
+      event.preventDefault()
+      const name = new FormData(event.currentTarget).get('name')
+      try {
+        const result = await teamWrite<{ user: TeamUser }>('auth/profile', 'POST', { name })
+        onChanged(result.user)
+        setMessage('이름을 저장했습니다.')
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : '이름을 저장하지 못했습니다.')
+      }
+    }}>
+      <label>이름<input name="name" required maxLength={80} defaultValue={user.name} /></label>
+      <button type="submit">이름 저장</button>
+    </form>
+    {message && <p role="status">{message}</p>}
+  </section>
+}
+
+function PasswordSettings({ onChanged }: { onChanged: () => void }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const fields = new FormData(event.currentTarget)
+    const newPassword = fields.get('newPassword')
+    if (newPassword !== fields.get('confirmation')) {
+      setError('새 비밀번호 확인이 일치하지 않습니다.')
+      return
+    }
+    setPending(true)
+    setError('')
+    try {
+      await teamWrite('auth/password', 'POST', { currentPassword: fields.get('currentPassword'), newPassword })
+      onChanged()
+    } catch (error) {
+      setError(message(error))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return <section className="ttech-panel">
+    <h2>비밀번호 변경</h2>
+    <form className="ttech-inline-form" onSubmit={changePassword}>
+      <label>현재 비밀번호<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} /></label>
+      <label>새 비밀번호<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+      <label>새 비밀번호 확인<input name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+      <button type="submit" disabled={pending}>변경 후 다시 로그인</button>
+    </form>
+    {error && <p role="alert" className="ttech-error">{error}</p>}
+  </section>
+}
 
 // 로그인·초대 수락은 이 화면에서 처리하고, 로그인한 뒤의 화면(캘린더·워크스페이스·보고서·설정)은 모두 Smartwork 틀 안에 그립니다.
 export default function TeamWorkspace({ onOpenChat, view, navigate }: {
@@ -52,8 +106,15 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
   const user = session?.user
   const isAdmin = !!user?.isAdmin
   const viewAll = canViewAll(user)
+  const meetingLink = meetingDetailRoute.exec(view)
+  const linkedTeam = meetingLink?.[3] ? Number(meetingLink[3]) : undefined
+  const linkedDay = meetingLink?.[2]
+  const currentReport = meetingLink ? meetingLink[1] as 'daily' | 'weekly' : reportTab
   // 기본은 내 팀입니다. 관리자·대표·본부장이 다른 팀을 고르면 그 팀을 읽기 전용으로 보고, 요청에 ?team=을 붙입니다.
-  const viewTeam = viewAll && selectedTeam && selectedTeam !== user?.teamId ? selectedTeam : undefined
+  const teamView = ['team-calendar', 'team-reports'].includes(view) ||
+    (view.startsWith('smart-') && !['smart-portal', 'smart-workspace', 'smart-settings'].includes(view))
+  const chosenTeam = meetingLink ? linkedTeam : viewAll ? selectedTeam ?? (!user?.teamId && teamView ? teams[0]?.id : undefined) : undefined
+  const viewTeam = chosenTeam && chosenTeam !== user?.teamId ? chosenTeam : undefined
   const otherTeam = viewTeam ? teams.find(team => team.id === viewTeam) : undefined
   const viewTeamName = otherTeam?.name ?? user?.teamName
   const viewTeamKind = otherTeam?.kind ?? user?.teamKind ?? 'SALES'
@@ -64,7 +125,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
       if (!controller.signal.aborted) setError(message(error))
     })
     return () => controller.abort()
-  }, [])
+  }, [view])
 
   // 초대 링크로 들어오면 어느 팀에 어떤 자리로 초대됐는지 먼저 읽습니다.
   useEffect(() => {
@@ -98,7 +159,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
   }, [user, invite, view])
 
   useEffect(() => {
-    if (!user || invite) return
+    if (!user || invite || (!user.teamId && !viewTeam)) return
     const controller = new AbortController()
     teamGet<TeamMember[]>(withTeam('members', viewTeam), controller.signal).then(setMembers).catch(error => {
       if (!controller.signal.aborted) setError(message(error))
@@ -137,8 +198,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
         }
         if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('받은 초대 링크를 확인해 주세요.')
       }
-      const payload = joining ? { name: fields.name, password: fields.password, title: fields.title, token }
-        : action === 'setup' ? { ...fields, teamId: Number(fields.teamId) } : fields
+      const payload = joining ? { name: fields.name, password: fields.password, token } : fields
       const result = await teamWrite<{ user: TeamUser }>('auth/' + action, 'POST', payload)
       setSession({ user: result.user, setupRequired: false })
       if (invite) {
@@ -169,44 +229,83 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
     navigate('team-calendar')
   }
 
+  function chooseReport(tab: 'daily' | 'weekly' | 'personal') {
+    setReportTab(tab)
+    if (meetingLink) {
+      setSelectedTeam(viewAll ? viewTeam : undefined)
+      navigate('team-reports')
+    }
+  }
+
   const reportsPanel = user && <>
     <h1 className="sw-page-title">회의·보고서</h1>
     <div className="ttech-actions ttech-report-tabs">
-      <button type="button" aria-pressed={reportTab === 'daily'} onClick={() => setReportTab('daily')}>일일회의 보고서</button>
-      <button type="button" aria-pressed={reportTab === 'weekly'} onClick={() => setReportTab('weekly')}>주간회의 보고서</button>
-      <button type="button" aria-pressed={reportTab === 'personal'} onClick={() => setReportTab('personal')}>주간 업무보고</button>
+      <button type="button" aria-pressed={currentReport === 'daily'} onClick={() => chooseReport('daily')}>일일회의 보고서</button>
+      <button type="button" aria-pressed={currentReport === 'weekly'} onClick={() => chooseReport('weekly')}>주간회의 보고서</button>
+      <button type="button" aria-pressed={currentReport === 'personal'} onClick={() => chooseReport('personal')}>주간 업무보고</button>
     </div>
-    {viewTeam && <p className="ttech-muted">{viewTeamName} 보고서를 읽기 전용으로 보고 있습니다.</p>}
-    {reportTab === 'personal' ? <TeamReports key={'reports-' + (viewTeam ?? 'own')} user={user} members={members} teamId={viewTeam} readOnly={!!viewTeam} />
-      : <TeamMeetings key={reportTab + '-' + (viewTeam ?? 'own')} user={user} kind={reportTab} teamId={viewTeam} readOnly={!!viewTeam} />}
+    {viewTeam && <p className="ttech-muted">{viewTeamName} 보고서 조회{isAdmin && ['대표', '본부장'].includes(user.title) ? ' · 회의 결재 가능' : ''}</p>}
+    {currentReport === 'personal' ? <TeamReports key={'reports-' + (viewTeam ?? 'own')} user={user} members={members} teamId={viewTeam} readOnly={!!viewTeam} />
+      : <TeamMeetings key={currentReport + '-' + (viewTeam ?? 'own') + '-' + (linkedDay ?? '')}
+        user={user} kind={currentReport} teamId={viewTeam} readOnly={!!viewTeam} initialDay={linkedDay} />}
   </>
 
   // 설정: 관리자는 조직 관리, 팀장은 자기 팀원 초대, 그 외에는 안내만 봅니다.
-  const settingsPanel = user && (isAdmin ? <OrgAdmin teams={teams} reloadTeams={reloadTeams} ownTeamId={user.teamId} />
-    : user.role === 'LEAD' ? <TeamInvites user={user} />
-      : <p className="ttech-muted">팀원 초대는 팀장과 관리자가 합니다.</p>)
+  const settingsPanel = user && <>
+    {isAdmin ? <OrgAdmin teams={teams} reloadTeams={reloadTeams} user={user} onSessionChanged={async () => {
+      setSession(await teamGet<TeamSession>('auth/session'))
+    }} />
+      : user.role === 'LEAD' && <TeamInvites user={user} />}
+    <ProfileSettings user={user} onChanged={changed => setSession(current => current && { ...current, user: changed })} />
+    <PasswordSettings onChanged={() => {
+      setSession({ user: null, setupRequired: false })
+      setSelectedTeam(undefined)
+      navigate('workspaces')
+    }} />
+  </>
 
   const workspacePanel = user && <WorkspaceHome user={user} teams={teams} members={viewTeam ? [] : members}
     openTeam={id => viewTeamCalendar(id)} openPersonal={() => navigate('personal-calendar')} openSettings={() => navigate('team-settings')} />
 
   const common = { user, logout, openWorkspace: () => { setSelectedTeam(undefined); navigate('workspaces') } }
   const routes: Record<string, View> = { 'team-calendar': 'calendar', 'team-reports': 'reports', 'team-settings': 'settings', workspaces: 'workspace' }
-  const smartView = portal ? 'portal' : routes[view] ?? (view.startsWith('smart-') ? view.slice(6) : '')
+  const smartView = portal ? 'portal' : meetingLink ? 'reports' : routes[view] ?? (view.startsWith('smart-') ? view.slice(6) : '')
+  const detail = !invite && user ? workDetailRoute.exec(view) : null
+  if (detail && user) {
+    const personal = detail[1] === 'personal-work'
+    const teamId = !personal && detail[3] ? Number(detail[3]) : undefined
+    const readOnly = !!teamId && teamId !== user.teamId
+    const team = teams.find(team => team.id === teamId)
+    return <Smartwork key={view} currentView="calendar" personal={personal} {...common} members={readOnly ? [] : members}
+      detailWorkId={detail[2]} openDetail={navigate} navigate={next => {
+        if (next === 'portal') navigate('portal')
+        else if (next === 'workspace') navigate('workspaces')
+        else if (personal) navigate(`personal-${next}`)
+        else {
+          setSelectedTeam(readOnly && viewAll ? teamId : undefined)
+          navigate(`smart-${next}`)
+        }
+      }}
+      switchWorkspace={() => personal ? viewTeamCalendar(undefined) : navigate('personal-calendar')}
+      reports={reportsPanel} workspacePanel={workspacePanel} settingsPanel={settingsPanel}
+      teamName={team?.name ?? user.teamName} teamId={teamId} teamKind={team?.kind ?? user.teamKind}
+      readOnly={readOnly} teams={viewAll ? teams : undefined} ownTeamId={user.teamId ?? undefined} selectTeam={viewTeamCalendar} />
+  }
   if (!invite && smartViews.has(smartView) && (portal || user)) {
     // 다른 팀으로 바꾸면 이전 팀 업무가 남지 않도록 화면을 새로 그립니다.
     return <Smartwork key={'team-' + (user?.id ?? 'signed-out') + '-' + (viewTeam ?? 'own')} currentView={smartView as View} {...common}
       members={members} navigate={next => navigate(next === 'portal' ? 'portal' : `smart-${next}`)} switchWorkspace={() => navigate('personal-calendar')}
-      reports={reportsPanel} workspacePanel={workspacePanel} settingsPanel={settingsPanel}
+      reports={reportsPanel} workspacePanel={workspacePanel} settingsPanel={settingsPanel} openDetail={navigate}
       teamName={viewTeamName} teamId={viewTeam} teamKind={viewTeamKind} readOnly={!!viewTeam}
-      teams={viewAll ? teams : undefined} ownTeamId={user?.teamId} selectTeam={id => setSelectedTeam(id === user?.teamId ? undefined : id)} />
+      teams={viewAll ? teams : undefined} ownTeamId={user?.teamId ?? undefined} selectTeam={id => setSelectedTeam(id === user?.teamId ? undefined : id)} />
   }
   // 개인 워크스페이스도 같은 캘린더 화면을 쓰고, 데이터는 본인만 접근하는 personal API에서 읽습니다. 보고서는 팀 공간에만 있습니다.
   const personalView = view.startsWith('personal-') ? view.slice(9) : ''
   if (!invite && user && smartViews.has(personalView) && !['portal', 'reports'].includes(personalView)) {
     return <Smartwork key={'personal-' + user.id} personal currentView={personalView as View} {...common} members={members}
       navigate={next => navigate(next === 'portal' ? 'portal' : next === 'workspace' ? 'workspaces' : `personal-${next}`)}
-      switchWorkspace={() => viewTeamCalendar(undefined)} reports={null} workspacePanel={workspacePanel} settingsPanel={settingsPanel}
-      teamName={user.teamName} teamKind={user.teamKind} teams={viewAll ? teams : undefined} ownTeamId={user.teamId}
+      switchWorkspace={() => viewTeamCalendar(undefined)} reports={null} workspacePanel={workspacePanel} settingsPanel={settingsPanel} openDetail={navigate}
+      teamName={user.teamName} teamKind={user.teamKind} teams={viewAll ? teams : undefined} ownTeamId={user.teamId ?? undefined}
       selectTeam={id => viewTeamCalendar(id === user.teamId ? undefined : id)} />
   }
 
@@ -243,15 +342,15 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
         <form key={joining ? 'member' : setup ? 'setup' : 'login'} onSubmit={enter} className="ttech-form">
           {memberEntry && !invite && <label>초대 링크<input name="inviteLink" type="url" required onChange={event => readInviteLink(event.target.value)} /></label>}
           {joining && inviteInfo && <p className="ttech-invite-info"><strong>{inviteInfo.teamName}</strong> · {roleLabels[inviteInfo.role]}으로 초대되었습니다 ({inviteInfo.email})</p>}
-          {signInFields(joining, setup, session.teams, session.takenTitles, inviteInfo?.role)}
-          {setup && <p className="ttech-muted">처음 설치할 때 한 번만 하는 설정입니다. 이 계정은 관리자 권한을 가지며 다른 팀의 팀장과 팀원을 초대합니다. 직급을 팀장으로 고르면 고른 팀의 팀장도 맡습니다.</p>}
+          {signInFields(joining, setup, session, inviteInfo?.role)}
+          {setup && <p className="ttech-muted">처음 설치할 때 회사 소속 대표 계정을 한 번 만듭니다.</p>}
           {joining && <p className="ttech-muted">직급은 이름 옆에 표시됩니다. 팀장은 부서마다 1명이라 팀장으로 초대받은 경우에만 팀장이 되고, 대표·본부장은 회사에 각각 1명입니다.</p>}
           <button disabled={pending} type="submit">{joining ? '팀에 참여하기' : setup ? '관리자로 시작' : '로그인'}</button>
         </form>
       </section>}
       {user && !invite && !portal && <section className="ttech-panel ttech-workspace-home" aria-labelledby="workspace-home-title">
         <h1 id="workspace-home-title">팀 업무</h1>
-        <p>{user.name} · {user.teamName} {titleLabel(user)}</p>
+        <p>{user.name} · {user.membershipTeamId ? user.teamName : '회사'} {titleLabel(user)}</p>
         <button type="button" onClick={() => navigate('workspaces')}>내 워크스페이스 열기</button>
       </section>}
     </main>

@@ -69,7 +69,8 @@ export default function TeamReports({ user, members, teamId, readOnly = false }:
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [busy, setBusy] = useState(false)
-  const lead = user.role === 'LEAD'
+  const lead = !readOnly && user.role === 'LEAD'
+  const canReadSubmissions = lead || user.isAdmin
 
   useEffect(() => {
     const controller = new AbortController()
@@ -111,7 +112,7 @@ export default function TeamReports({ user, members, teamId, readOnly = false }:
     <div className="ttech-actions">
       {!readOnly && <button type="button" disabled={busy} aria-pressed={mode === 'personal'} onClick={() => setMode('personal')}>내 보고</button>}
       <button type="button" disabled={busy} aria-pressed={mode === 'team'} onClick={() => setMode('team')}>팀 보고</button>
-      {lead && <button type="button" disabled={busy} aria-pressed={mode === 'submissions'} onClick={() => setMode('submissions')}>제출 현황</button>}
+      {canReadSubmissions && <button type="button" disabled={busy} aria-pressed={mode === 'submissions'} onClick={() => setMode('submissions')}>제출 현황</button>}
     </div>
     {error && <p role="alert" className="ttech-error">{error}</p>}
     {feedback && <p role="status">{feedback}</p>}
@@ -123,13 +124,12 @@ export default function TeamReports({ user, members, teamId, readOnly = false }:
     {reports && mode === 'team' && (lead
       ? <ReportForm key={week + '/team'} report={reports.team} publishLabel="팀 보고 게시" busy={busy} onSave={input => void save('team', input)} />
       : reports.team ? <ReadReport report={reports.team} /> : <p>게시된 팀 보고가 없습니다.</p>)}
-    {reports && mode === 'submissions' && lead && <div className="ttech-submissions">
-      {members.map(member => {
-        const report = reports.submissions.find(item => item.userId === member.id)
-        return report ? <details key={member.id}>
-          <summary>{member.name} · 제출</summary><ReadReport report={report} />
-        </details> : <p key={member.id}>{member.name} · 미제출</p>
-      })}
+    {reports && mode === 'submissions' && canReadSubmissions && <div className="ttech-submissions">
+      {reports.submissions.map(report => <details key={report.userId}>
+        <summary>{report.name} · 제출</summary><ReadReport report={report} />
+      </details>)}
+      {members.filter(member => !reports.submissions.some(report => report.userId === member.id))
+        .map(member => <p key={member.id}>{member.name} · 미제출</p>)}
     </div>}
   </section>
 }

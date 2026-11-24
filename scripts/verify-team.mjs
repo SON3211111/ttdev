@@ -8,6 +8,14 @@ const leadEmail = 'lead@example.test'
 const memberEmail = 'member@example.test'
 const observerEmail = 'observer@example.test'
 
+for (const [path, method] of [
+  ['records', 'GET'], ['schedules', 'GET'], ['tasks', 'GET'],
+  ['calendar/tasks?month=2026-11', 'GET'], ['calendar/schedules?month=2026-11', 'GET'], ['ai/generate', 'POST'],
+]) {
+  const response = await fetch(base + '/api/' + path, { method })
+  assert.equal(response.status, 404, method + ' /api/' + path)
+}
+
 async function request(path, expectedStatus, { cookie, method = 'GET', value } = {}) {
   const response = await fetch(base + '/api/team/' + path, {
     method,
@@ -25,20 +33,20 @@ const firstSession = (await request('auth/session', 200)).data
 assert.equal(firstSession.setupRequired, true)
 assert.deepEqual(firstSession.teams.map(team => team.name), ['기술영업 1팀', '기술영업 2팀', '기술영업팀(서울지사)', '솔루션개발 1팀', '솔루션개발 2팀', '경영지원팀', '기업부설연구소'])
 const supportTeam = firstSession.teams.find(team => team.name === '경영지원팀')
-await post('auth/setup', 400, { email: 'admin@example.test', name: '관리자', password, teamId: supportTeam.id, title: '이사' })
-const admin = await post('auth/setup', 200, { email: 'admin@example.test', name: '관리자', password, teamId: supportTeam.id, title: '팀장' })
-assert.equal(admin.data.user.role, 'LEAD')
+const admin = await post('auth/setup', 200, { email: 'admin@example.test', name: '대표 계정', password })
+assert.equal(admin.data.user.role, 'MEMBER')
 assert.equal(admin.data.user.isAdmin, true)
-assert.equal(admin.data.user.title, '팀장')
-assert.equal(admin.data.user.teamName, '경영지원팀')
-await post('auth/setup', 409, { email: 'admin2@example.test', name: '관리자 다시 설정', password, teamId: supportTeam.id })
+assert.equal(admin.data.user.title, '대표')
+assert.equal(admin.data.user.membershipTeamId, null)
+assert.equal(admin.data.user.teamId, null)
+assert.equal(admin.data.user.teamName, '회사')
+await post('auth/setup', 409, { email: 'admin2@example.test', name: '대표 다시 설정', password })
 const laterSession = (await request('auth/session', 200)).data
 assert.equal(laterSession.setupRequired, false)
 assert.equal(laterSession.teams, undefined)
 const teamList = (await request('teams', 200, { cookie: admin.cookie })).data
 const [salesOne, salesTwo] = teamList
 await post('auth/invite', 401, { email: memberEmail })
-await post('auth/invite', 409, { email: leadEmail, role: 'LEAD' }, admin.cookie)
 const leadInvite = await post('auth/invite', 201, { email: leadEmail, teamId: salesOne.id, role: 'LEAD' }, admin.cookie)
 assert.equal(leadInvite.data.expiresInDays, 7)
 await post('auth/accept', 400, { token: leadInvite.data.token, name: '팀장', password, title: '사장' })
@@ -143,21 +151,43 @@ await request('meetings/weekly/' + monday, 200, { method: 'PUT', value: meeting,
 console.log('PASS daily and weekly meeting reports and edit permissions')
 
 const live = (await post('work', 201, {
-  ...workInput, time: '10:30', alerts: ['3일 전', '당일'], repeat: '매주',
+  ...workInput, time: '10:30', endTime: '11:45', alerts: ['3일 전', '당일'], repeat: '매주',
 }, member.cookie)).data
 const saved = (await request('work/' + live.id, 200, { cookie: observer.cookie })).data
 assert.equal(saved.time, '10:30')
+assert.equal(saved.endTime, '11:45')
+assert.equal(saved.createdBy, member.data.user.id)
+assert.ok(Number.isFinite(Date.parse(saved.createdAt)))
 assert.deepEqual(saved.alerts, ['3일 전', '당일'])
 assert.equal(saved.repeat, '매주')
 assert.ok((await request('work?scope=all', 200, { cookie: observer.cookie })).data.some(item => item.id === live.id))
 assert.ok(!(await request('work?scope=all', 200, { cookie: observer.cookie })).data.some(item => item.id === own.id))
 await request('work/' + live.id, 200, { method: 'PUT', value: { ...workInput, status: 'DONE' }, cookie: member.cookie })
-assert.deepEqual((await request('work/' + live.id, 200, { cookie: observer.cookie })).data.alerts, saved.alerts)
+const updatedWork = (await request('work/' + live.id, 200, { cookie: observer.cookie })).data
+assert.deepEqual(updatedWork.alerts, saved.alerts)
+assert.equal(updatedWork.endTime, saved.endTime)
+const history = (await request('work/' + live.id + '/history', 200, { cookie: observer.cookie })).data
+assert.equal(history[0].changes.status.before, 'WAITING')
+assert.equal(history[0].changes.status.after, 'DONE')
+const attachmentPath = 'work/' + live.id + '/attachments'
+const testPdf = '%PDF-1.7\n'
+const upload = await fetch(base + '/api/team/' + attachmentPath + '?name=review.pdf', {
+  method: 'POST', headers: { Cookie: member.cookie, 'Content-Type': 'application/pdf' }, body: testPdf,
+})
+assert.equal(upload.status, 201)
+const attachment = await upload.json()
+const download = await fetch(base + '/api/team/' + attachmentPath + '/' + attachment.id, { headers: { Cookie: observer.cookie } })
+assert.equal(download.status, 200)
+assert.match(download.headers.get('Content-Disposition'), /^attachment;/)
+assert.equal(await download.text(), testPdf)
+await request(attachmentPath + '/' + attachment.id, 204, { method: 'DELETE', cookie: member.cookie })
+assert.deepEqual((await request(attachmentPath, 200, { cookie: member.cookie })).data, [])
 console.log('PASS work time and reminders persistence, compatible updates and workspace isolation')
 const meetingPath = 'meetings/daily/' + today
 assert.ok((await request(meetingPath + '/work', 200, { cookie: member.cookie })).data.some(item => item.id === current.id))
 await request(meetingPath, 400, { method: 'PUT', value: { ...meeting, workIds: [own.id], action: 'submit' }, cookie: member.cookie })
 const pending = await request(meetingPath, 200, { method: 'PUT', value: { ...meeting, workIds: [current.id], action: 'submit' }, cookie: member.cookie })
+assert.ok((await request('work/' + current.id + '/meetings', 200, { cookie: member.cookie })).data.some(item => item.kind === 'daily' && item.day === today))
 assert.equal(pending.data.approvalStatus, 'PENDING')
 await request(meetingPath, 403, { method: 'PUT', value: { action: 'approve' }, cookie: member.cookie })
 const approval = await request(meetingPath, 200, { method: 'PUT', value: { action: 'approve' }, cookie: lead.cookie })
@@ -181,69 +211,56 @@ await post('work', 400, { ...workInput, assigneeId: member.data.user.id }, other
 await request('work/' + current.id, 400, { method: 'PUT', value: { ...workInput, assigneeId: otherLead.data.user.id }, cookie: lead.cookie })
 console.log('PASS team isolation for work, meetings, reports, dashboard, members and assignment')
 
-// 관리자는 자기 팀(경영지원팀)에서는 팀장이고, 다른 팀은 ?team=으로 읽기만 합니다. 팀 정보·팀장 지정·팀 이동·직급·관리자 권한을 관리합니다.
-assert.ok(!(await request('work?scope=all', 200, { cookie: admin.cookie })).data.some(item => item.id === current.id))
-const adminOwn = (await post('work', 201, { ...workInput, category: 'PURCHASE', company: null }, admin.cookie)).data
-assert.equal(adminOwn.category, 'PURCHASE')
+const setAccount = (account, value, cookie = admin.cookie, status = 200) =>
+  request('users/' + account.data.user.id, status, { method: 'PUT', value, cookie })
+const savedProfile = await post('auth/profile', 200, { name: '대표 계정' }, admin.cookie)
+assert.equal(savedProfile.data.user.name, '대표 계정')
+await setAccount(admin, { title: '대표', teamId: null }, admin.cookie, 403)
 assert.ok((await request('work?scope=all&team=' + salesOne.id, 200, { cookie: admin.cookie })).data.some(item => item.id === current.id))
-assert.equal((await request(meetingPath + '?team=' + salesOne.id, 200, { cookie: admin.cookie })).data.approvalStatus, 'APPROVED')
-assert.equal((await request(reportsPath + '?team=' + salesOne.id, 200, { cookie: admin.cookie })).data.team.accomplishments, report.accomplishments)
-await request('work?team=' + salesOne.id, 403, { method: 'POST', value: workInput, cookie: admin.cookie })
-await request('work/' + current.id + '?team=' + salesOne.id, 403, { method: 'DELETE', cookie: admin.cookie })
+const companyReport = (await request(reportsPath + '?team=' + salesOne.id, 200, { cookie: admin.cookie })).data
+assert.equal(companyReport.team.accomplishments, report.accomplishments)
+assert.ok(companyReport.submissions.some(item => item.userId === member.data.user.id))
 await request('users', 403, { cookie: lead.cookie })
-await request('teams', 403, { method: 'POST', value: { name: '새 팀', kind: 'DEV', location: '대구 본사' }, cookie: lead.cookie })
 const renamed = (await request('teams/' + salesTwo.id, 200, { method: 'PUT', value: { name: '기술영업 2팀', kind: 'SALES', location: '대구 본사' }, cookie: admin.cookie })).data
 assert.equal(renamed.leadName, '2팀 팀장')
-await request('teams/' + salesTwo.id, 400, { method: 'PUT', value: { name: '기술영업 1팀', kind: 'SALES', location: '대구 본사' }, cookie: admin.cookie })
-const moved = (await request('users/' + observer.data.user.id, 200, { method: 'PUT', value: { teamId: salesTwo.id, role: 'LEAD' }, cookie: admin.cookie })).data
-assert.equal(moved.teamName, '기술영업 2팀')
+await setAccount(observer, { teamId: salesTwo.id, title: '팀장' }, admin.cookie, 409)
+const moved = await setAccount(observer, { teamId: salesTwo.id, title: '팀장', replaceLead: true })
+assert.equal(moved.data.managedTeamId, salesTwo.id)
 const accounts = (await request('users', 200, { cookie: admin.cookie })).data
-assert.equal(accounts.find(item => item.id === otherLead.data.user.id).role, 'MEMBER')
 assert.equal(accounts.find(item => item.id === otherLead.data.user.id).title, '프로')
-assert.equal(accounts.find(item => item.id === observer.data.user.id).role, 'LEAD')
 assert.equal(accounts.find(item => item.id === observer.data.user.id).title, '팀장')
-await request('users/' + admin.data.user.id, 409, { method: 'PUT', value: { teamId: supportTeam.id, role: 'LEAD', isAdmin: false }, cookie: admin.cookie })
-const titled = (await request('users/' + member.data.user.id, 200, { method: 'PUT', value: { teamId: salesOne.id, role: 'MEMBER', title: '본부장' }, cookie: admin.cookie })).data
-assert.equal(titled.title, '본부장')
-assert.equal(titled.isAdmin, false)
-await request('users/' + lead.data.user.id, 403, { method: 'PUT', value: { teamId: salesOne.id, role: 'LEAD' }, cookie: member.cookie })
-assert.ok(!(await request('work?scope=all', 200, { cookie: observer.cookie })).data.some(item => item.id === current.id))
-assert.equal((await request('auth/session', 200, { cookie: observer.cookie })).data.user.teamName, '기술영업 2팀')
-console.log('PASS admin as team lead, read-only view of other teams, team management, lead assignment, titles and last-admin guard')
+await request('work?scope=all&team=' + salesTwo.id, 403, { cookie: lead.cookie })
+console.log('PASS company setup, personal profile, self-management denial, team isolation and explicit lead replacement')
 
-// 직급은 표시용이지만 대표·본부장은 다른 팀을 읽기 전용으로 봅니다. 프로·팀장은 자기 팀만 봅니다.
-assert.ok((await request('work?scope=all&team=' + salesTwo.id, 200, { cookie: member.cookie })).data.every(item => item.id !== current.id))
-await request('work?team=' + salesTwo.id, 403, { method: 'POST', value: workInput, cookie: member.cookie })
-// 팀장도 다른 팀을 읽기 전용으로 봅니다. 프로(팀원 권한·관리자 아님)는 자기 팀만 봅니다.
-await request('work?scope=all&team=' + salesTwo.id, 200, { cookie: lead.cookie })
-await request('work?team=' + salesTwo.id, 403, { method: 'POST', value: workInput, cookie: lead.cookie })
-assert.deepEqual((await request('members?team=' + supportTeam.id, 200, { cookie: lead.cookie })).data.map(item => item.name), ['관리자'])
-assert.equal((await request('auth/session', 200, { cookie: otherLead.cookie })).data.user.title, '프로')
-await request('work?scope=all&team=' + salesOne.id, 403, { cookie: otherLead.cookie })
-await request('members?team=' + salesOne.id, 403, { cookie: otherLead.cookie })
-assert.deepEqual((await request('members?team=' + supportTeam.id, 200, { cookie: member.cookie })).data.map(item => item.name), ['관리자'])
-await request('work?scope=all', 200, { cookie: member.cookie })
-console.log('PASS read-only access to other teams for admin, 팀장, 본부장, 대표 and none for 프로')
-
-// 대표·본부장은 회사 전체에 각각 1명입니다. 이미 있으면 가입·직급 변경 모두 거절하고, 실패한 가입은 초대를 소모하지 않습니다.
-assert.deepEqual((await request('auth/session', 200)).data.takenTitles, ['본부장'])
-const execInvite = await post('auth/invite', 201, { email: 'ceo@example.test' }, lead.cookie)
-await post('auth/accept', 409, { token: execInvite.data.token, name: '두 번째 본부장', password, title: '본부장' })
-const ceo = await post('auth/accept', 200, { token: execInvite.data.token, name: '대표', password, title: '대표' })
-assert.equal(ceo.data.user.title, '대표')
-assert.deepEqual((await request('auth/session', 200)).data.takenTitles.sort(), ['대표', '본부장'].sort())
-const secondInvite = await post('auth/invite', 201, { email: 'ceo-two@example.test' }, lead.cookie)
-await post('auth/accept', 409, { token: secondInvite.data.token, name: '두 번째 대표', password, title: '대표' })
-await request('users/' + otherLead.data.user.id, 409, { method: 'PUT', value: { teamId: salesTwo.id, role: 'MEMBER', title: '대표' }, cookie: admin.cookie })
-assert.equal((await request('users/' + ceo.data.user.id, 200, { method: 'PUT', value: { teamId: salesOne.id, role: 'MEMBER', title: '대표' }, cookie: admin.cookie })).data.title, '대표')
-console.log('PASS one 대표 and one 본부장 across the company')
+const director = (await setAccount(member, { title: '본부장', teamId: null, managedTeamId: supportTeam.id })).data
+assert.equal(director.teamId, null)
+assert.equal(director.isAdmin, true)
+assert.equal(director.managedTeamId, supportTeam.id)
+await setAccount(otherLead, { title: '대표', teamId: null }, admin.cookie, 409)
+await setAccount(otherLead, { title: '본부장', teamId: null }, admin.cookie, 409)
+const session = (await request('auth/session', 200, { cookie: member.cookie })).data.user
+assert.equal(session.membershipTeamId, null)
+assert.equal(session.managedTeamId, supportTeam.id)
+assert.equal(session.title, '본부장')
+const directorWork = (await post('work', 201, { ...workInput, category: 'PURCHASE', company: null }, member.cookie)).data
+assert.equal(directorWork.category, 'PURCHASE')
+assert.ok((await request('work?scope=all&team=' + salesOne.id, 200, { cookie: member.cookie })).data.some(item => item.id === current.id))
+await request('work?team=' + salesOne.id, 403, { method: 'POST', value: workInput, cookie: member.cookie })
+const otherMeeting = 'meetings/daily/' + today
+await request(otherMeeting, 200, { method: 'PUT', value: { ...meeting, action: 'submit' }, cookie: observer.cookie })
+const approved = (await request(otherMeeting + '/approval?team=' + salesTwo.id, 200, { method: 'PUT', value: {}, cookie: member.cookie })).data
+assert.ok(approved.approvedBy)
+assert.ok(Number.isFinite(Date.parse(approved.approvedAt)))
+const orgHistory = (await request('users/history', 200, { cookie: admin.cookie })).data
+assert.ok(orgHistory.some(item => item.changes.title?.after === '본부장'))
+console.log('PASS company director and team lead overlap, submitted reports, company approval, audit and unique titles')
 
 // '팀장' 직급은 팀장 권한과 같고 부서마다 1명입니다. 초대 정보로 어느 팀에 어떤 자리인지 보여줍니다.
 const seoulTeam = teamList.find(team => team.name === '기술영업팀(서울지사)')
 const seoulInvite = await post('auth/invite', 201, { email: 'seoul-lead@example.test', teamId: seoulTeam.id, role: 'LEAD' }, admin.cookie)
 assert.deepEqual((await request('auth/invite?token=' + seoulInvite.data.token, 200)).data, { email: 'seoul-lead@example.test', role: 'LEAD', teamName: '기술영업팀(서울지사)' })
 await request('auth/invite?token=' + 'f'.repeat(64), 400)
-const seoulLead = await post('auth/accept', 200, { token: seoulInvite.data.token, name: '서울 팀장', password, title: '프로' })
+const seoulLead = await post('auth/accept', 200, { token: seoulInvite.data.token, name: '서울 팀장', password })
 assert.equal(seoulLead.data.user.title, '팀장')
 assert.equal(seoulLead.data.user.role, 'LEAD')
 const proInvite = await post('auth/invite', 201, { email: 'pro-one@example.test' }, seoulLead.cookie)
@@ -251,7 +268,7 @@ await post('auth/accept', 400, { token: proInvite.data.token, name: '팀장 희�
 const pro = await post('auth/accept', 200, { token: proInvite.data.token, name: '서울 프로', password })
 assert.equal(pro.data.user.title, '프로')
 await request('users/' + pro.data.user.id, 400, { method: 'PUT', value: { teamId: seoulTeam.id, role: 'MEMBER', title: '팀장' }, cookie: admin.cookie })
-const promoted = (await request('users/' + pro.data.user.id, 200, { method: 'PUT', value: { teamId: seoulTeam.id, role: 'LEAD' }, cookie: admin.cookie })).data
+const promoted = (await request('users/' + pro.data.user.id, 200, { method: 'PUT', value: { teamId: seoulTeam.id, title: '팀장', replaceLead: true }, cookie: admin.cookie })).data
 assert.equal(promoted.title, '팀장')
 const seoulMembers = (await request('members?team=' + seoulTeam.id, 200, { cookie: admin.cookie })).data
 assert.deepEqual(seoulMembers.filter(item => item.title === '팀장').map(item => item.name), ['서울 프로'])
@@ -281,9 +298,9 @@ console.log('PASS team kind categories for team and personal work')
 
 // 알림 시점은 90일 전(장기 일정)부터 당일까지 고를 수 있습니다.
 const longAlerts = ['90일 전', '30일 전', '7일 전', '3일 전', '1일 전', '당일']
-const longTerm = (await post('work', 201, { ...workInput, alerts: longAlerts, repeat: '없음' }, member.cookie)).data
+const longTerm = (await post('work', 201, { ...workInput, alerts: longAlerts, repeat: '없음' }, otherLead.cookie)).data
 assert.deepEqual(longTerm.alerts, longAlerts)
-await post('work', 400, { ...workInput, alerts: ['60일 전'] }, member.cookie)
+await post('work', 400, { ...workInput, alerts: ['60일 전'] }, otherLead.cookie)
 console.log('PASS long-range reminder options')
 
 // 초대 수락 대기 목록: 관리자는 전체, 팀장은 자기 팀만 보고, 재발송하면 같은 이메일의 초대는 1건으로 유지됩니다.
@@ -295,7 +312,21 @@ assert.ok(allInvites.some(item => item.email === 'pending-one@example.test'))
 const teamInvites = (await request('auth/invites', 200, { cookie: lead.cookie })).data
 assert.ok(teamInvites.some(item => item.email === 'pending-one@example.test'))
 assert.ok(teamInvites.every(item => item.teamId === salesOne.id))
-await request('auth/invites', 403, { cookie: member.cookie })
+await request('auth/invites', 403, { cookie: otherLead.cookie })
 await post('auth/invite', 201, { email: 'pending-one@example.test' }, lead.cookie)
 assert.equal((await request('auth/invites', 200, { cookie: lead.cookie })).data.filter(item => item.email === 'pending-one@example.test').length, 1)
 console.log('PASS pending invite lists by role and resend')
+
+const accountInvite = await post('auth/invite', 201, { email: 'account-lifecycle@example.test' }, lead.cookie)
+const account = await post('auth/accept', 200, { token: accountInvite.data.token, name: '계정 검증', password })
+const secondSession = await post('auth/login', 200, { email: 'account-lifecycle@example.test', password })
+const newPassword = 'changed-test-password'
+await post('auth/password', 204, { currentPassword: password, newPassword }, account.cookie)
+assert.equal((await request('auth/session', 200, { cookie: secondSession.cookie })).data.user, null)
+const changed = await post('auth/login', 200, { email: 'account-lifecycle@example.test', password: newPassword })
+await request('users/' + admin.data.user.id + '/access', 403, { method: 'PUT', value: { active: false }, cookie: admin.cookie })
+await request('users/' + account.data.user.id + '/access', 204, { method: 'PUT', value: { active: false }, cookie: admin.cookie })
+assert.equal((await request('auth/session', 200, { cookie: changed.cookie })).data.user, null)
+await request('users/' + account.data.user.id + '/access', 204, { method: 'PUT', value: { active: true }, cookie: admin.cookie })
+await post('auth/login', 200, { email: 'account-lifecycle@example.test', password: newPassword })
+console.log('PASS password change, session revocation, account deactivation and reactivation')

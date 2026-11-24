@@ -26,7 +26,7 @@ export function InviteLink({ url }: { url: string }) {
 export function PendingInvites({ admin, version = 0, heading }: { admin: boolean; version?: number; heading?: ReactNode }) {
   const [invites, setInvites] = useState<Invite[]>()
   const [error, setError] = useState('')
-  const [resent, setResent] = useState<{ email: string; url: string }>()
+  const [resent, setResent] = useState<{ email: string; teamId: number; url: string }>()
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
@@ -42,7 +42,18 @@ export function PendingInvites({ admin, version = 0, heading }: { admin: boolean
     try {
       const input = admin ? { email: invite.email, teamId: invite.teamId, role: invite.role } : { email: invite.email }
       const { token } = await teamWrite<{ token: string }>('auth/invite', 'POST', input)
-      setResent({ email: invite.email, url: inviteLink(token) })
+      setResent({ email: invite.email, teamId: invite.teamId, url: inviteLink(token) })
+      setReload(value => value + 1)
+    } catch (error) {
+      setError(message(error))
+    }
+  }
+
+  async function cancel(invite: Invite) {
+    setError('')
+    try {
+      await teamWrite('auth/invite-cancel', 'POST', { email: invite.email, teamId: invite.teamId })
+      setResent(current => current?.email === invite.email && current.teamId === invite.teamId ? undefined : current)
       setReload(value => value + 1)
     } catch (error) {
       setError(message(error))
@@ -54,9 +65,12 @@ export function PendingInvites({ admin, version = 0, heading }: { admin: boolean
     {error && <p role="alert" className="sw-error">{error}</p>}
     {!invites && !error && <p role="status">초대 현황을 불러오는 중입니다.</p>}
     {invites?.length === 0 && <p className="ttech-muted">수락을 기다리는 초대가 없습니다.</p>}
-    <ul>{invites?.map(invite => <li key={invite.email}>
+    <ul>{invites?.map(invite => <li key={invite.teamId + ':' + invite.email}>
       <span><strong>{invite.email}</strong><small>{invite.teamName} · {roleLabels[invite.role]} · {invite.expiresAt.slice(0, 10)}까지</small></span>
+      <span>
       <button type="button" className="sw-secondary" onClick={() => void resend(invite)} aria-label={invite.email + ' 재발송'}>재발송</button>
+      <button type="button" className="sw-secondary" onClick={() => void cancel(invite)} aria-label={invite.email + ' 초대 취소'}>초대 취소</button>
+      </span>
     </li>)}</ul>
     {resent && <><p role="status">{resent.email} 초대 링크를 다시 만들었습니다.</p><InviteLink url={resent.url} /></>}
   </section>

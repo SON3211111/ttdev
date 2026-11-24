@@ -1,5 +1,5 @@
 {
-    "name":  "naui-haru-backend",
+    "name":  "backend-next",
     "private":  true,
     "scripts":  {
                     "test":  "node --test",

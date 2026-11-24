@@ -1,6 +1,6 @@
-# Python으로 만든 AI 요청 중계 서버입니다. Java 백엔드가 질문을 보내면 Ollama에 전달하고 답변을 돌려줍니다.
+# Python AI 서버는 질문을 Ollama에 전달하고 답변을 돌려줍니다.
 # FastAPI는 HTTP 주소를 만드는 도구, Ollama는 실제 AI 모델을 실행하는 프로그램입니다.
-# 현재는 일반 답변 생성만 지원합니다. 메모 저장, 임베딩(검색용 숫자 변환), 기록 검색은 아직 구현 전입니다.
+# 현재는 일반 답변 생성을 지원합니다. t&tech 업무 데이터 연동은 후속 범위입니다.
 
 import os
 
@@ -58,7 +58,7 @@ async def generate(request: GenerateRequest):
 
             # 4xx/5xx 실패 응답이면 예외를 냅니다. 성공한 경우에만 JSON에서 답변을 꺼냅니다.
             response.raise_for_status()
-            # Ollama의 전체 응답에서 프론트에 필요한 모델 이름과 답변 본문만 전달합니다.
+            # Ollama 응답에서 모델 이름과 답변 본문을 반환합니다.
             result = response.json()
 
             return {

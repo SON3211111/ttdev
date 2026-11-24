@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { teamGet, teamWrite, withTeam, type TeamUser } from '../api/team'
 
-type Meeting = { author: string; authorId: number; agenda: string; decisions: string; followups: string; workIds: number[]; approvalStatus: 'DRAFT' | 'PENDING' | 'APPROVED' }
+type Meeting = { author: string; authorId: number; agenda: string; decisions: string; followups: string; workIds: number[];
+  approvalStatus: 'DRAFT' | 'PENDING' | 'APPROVED'; approvedBy: string | null; approvedAt: string | null }
 type LinkedWork = { id: number; title: string; company: string | null; assigneeName: string }
 type Kind = 'daily' | 'weekly'
 const fields = { agenda: '안건과 진행 상황', decisions: '결정 사항', followups: '후속 업무와 담당자' } as const
@@ -16,8 +17,10 @@ function period(kind: Kind) {
 }
 
 // 관리자는 teamId로 고른 팀의 보고서를 읽기 전용(readOnly)으로 봅니다.
-export default function TeamMeetings({ user, kind, teamId, readOnly = false }: { user: TeamUser; kind: Kind; teamId?: number; readOnly?: boolean }) {
-  const [day, setDay] = useState(() => period(kind))
+export default function TeamMeetings({ user, kind, teamId, readOnly = false, initialDay }: {
+  user: TeamUser; kind: Kind; teamId?: number; readOnly?: boolean; initialDay?: string
+}) {
+  const [day, setDay] = useState(() => initialDay ?? period(kind))
   const [result, setResult] = useState<{ day: string; value: Meeting | null; work: LinkedWork[] }>()
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -27,6 +30,7 @@ export default function TeamMeetings({ user, kind, teamId, readOnly = false }: {
   const meeting = ready ? result.value : null
   const work = ready ? result.work : []
   const editable = !readOnly && (!meeting || (meeting.approvalStatus === 'DRAFT' && (user.role === 'LEAD' || meeting.authorId === user.id)))
+  const canApprove = (!readOnly && user.role === 'LEAD') || (user.isAdmin && (user.title === '대표' || user.title === '본부장'))
 
   useEffect(() => {
     if (!day) return
@@ -38,12 +42,13 @@ export default function TeamMeetings({ user, kind, teamId, readOnly = false }: {
     return () => controller.abort()
   }, [day, path, teamId])
 
-  async function save(input: object) {
+  async function save(input: object, approving = false) {
+    if (approving ? !canApprove : readOnly) return
     setPending(true)
     setError('')
     setSaved(false)
     try {
-      const value = await teamWrite<Meeting>(path, 'PUT', input)
+      const value = await teamWrite<Meeting>(withTeam(path + (approving ? '/approval' : ''), teamId), 'PUT', input)
       setResult({ day, value, work })
       setSaved(true)
     } catch (error) {
@@ -65,6 +70,7 @@ export default function TeamMeetings({ user, kind, teamId, readOnly = false }: {
       </label>
     </div>
     {meeting && <p>작성자 {meeting.author} · {meeting.approvalStatus === 'APPROVED' ? '결재 완료' : meeting.approvalStatus === 'PENDING' ? '결재대기' : '초안'}</p>}
+    {meeting?.approvedBy && meeting.approvedAt && <p>결재자 {meeting.approvedBy} · {new Date(meeting.approvedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>}
     {error && <p role="alert" className="ttech-error">{error}</p>}
     {saved && <p role="status">저장했습니다.</p>}
     {!ready && day && !error && <p role="status">보고서를 불러오는 중입니다.</p>}
@@ -88,7 +94,7 @@ export default function TeamMeetings({ user, kind, teamId, readOnly = false }: {
         {keys.map(key => <div className="ttech-report-field" key={key}><dt>{fields[key]}</dt><dd>{meeting?.[key] || '—'}</dd></div>)}
       </dl>
       {!!meeting?.workIds.length && <ul>{meeting.workIds.map(id => <li key={id}>{work.find(item => item.id === id)?.title ?? '현재 목록에서 제외된 업무'}</li>)}</ul>}
-      {user.role === 'LEAD' && meeting?.approvalStatus === 'PENDING' && <div className="ttech-actions"><button type="button" disabled={pending} onClick={() => void save({ action: 'approve' })}>결재 완료</button></div>}
+      {canApprove && meeting?.approvalStatus === 'PENDING' && <div className="ttech-actions"><button type="button" disabled={pending} onClick={() => void save({}, true)}>결재 완료</button></div>}
     </>)}
   </section>
 }

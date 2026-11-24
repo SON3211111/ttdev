@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { teamGet, teamKindLabels, teamWrite, titles, uniqueTitles, type Role, type Team, type TeamKind, type Title } from '../api/team'
+import { teamGet, teamKindLabels, teamWrite, titles, uniqueTitles, type Team, type TeamKind, type TeamUser, type Title } from '../api/team'
 import { InviteLink, PendingInvites } from './TeamInvites'
 
-type Account = { id: number; name: string; email: string; role: Role; isAdmin: boolean; title: Title; teamId: number; teamName: string }
+type Account = { id: number; name: string; email: string; isAdmin: boolean; isActive: boolean; title: Title; teamId: number | null; managedTeamId: number | null; teamName: string }
+type OrgChange = { id: number; actor: string; target: string; changedAt: string; changes: Record<string, { before: string | number | boolean | null; after: string | number | boolean | null }> }
+const changeLabels: Record<string, string> = { title: '직급', teamId: '소속 팀', managedTeamId: '담당 팀', isAdmin: '회사 관리', isActive: '계정 상태' }
 const kinds = Object.keys(teamKindLabels) as TeamKind[]
 
 function message(error: unknown) {
@@ -10,7 +12,9 @@ function message(error: unknown) {
 }
 
 // 관리자 전용 조직 관리: 팀 정보 수정·추가, 팀·역할을 지정한 초대, 사용자 팀 이동·팀장 지정·직급 수정·관리자 권한.
-export default function OrgAdmin({ teams, reloadTeams, ownTeamId }: { teams: Team[]; reloadTeams: () => Promise<void>; ownTeamId: number }) {
+export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }: {
+  teams: Team[]; reloadTeams: () => Promise<void>; user: TeamUser; onSessionChanged: () => Promise<void>
+}) {
   const [accounts, setAccounts] = useState<Account[]>()
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -18,6 +22,18 @@ export default function OrgAdmin({ teams, reloadTeams, ownTeamId }: { teams: Tea
   const [inviteUrl, setInviteUrl] = useState('')
   const [editing, setEditing] = useState<number>()
   const [inviteVersion, setInviteVersion] = useState(0)
+  const [pickedTitles, setPickedTitles] = useState<Record<number, Title>>({})
+  const [history, setHistory] = useState<OrgChange[]>()
+
+  function loadHistory() {
+    teamGet<OrgChange[]>('users/history').then(setHistory).catch(error => setError(message(error)))
+  }
+
+  function historyValue(field: string, value: string | number | boolean | null) {
+    if (typeof value === 'number') return teams.find(team => team.id === value)?.name ?? String(value)
+    if (typeof value === 'boolean') return value ? '있음' : '없음'
+    return value ?? (field === 'teamId' ? '회사' : '미지정')
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -61,14 +77,20 @@ export default function OrgAdmin({ teams, reloadTeams, ownTeamId }: { teams: Tea
   function saveAccount(event: FormEvent<HTMLFormElement>, account: Account) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
-    const role = String(data.get('role'))
-    const picked = String(data.get('title') ?? '')
-    // 팀장 권한이면 직급은 서버에서 팀장으로 맞추고, 팀원 권한인데 팀장으로 남아 있으면 프로로 내립니다.
-    const title = role === 'LEAD' ? undefined : !picked || picked === '팀장' ? '프로' : picked
-    const input = { teamId: Number(data.get('teamId')), role, title, isAdmin: data.get('isAdmin') === 'on' }
+    const title = pickedTitles[account.id] ?? account.title
+    const teamId = uniqueTitles.includes(title) ? null : Number(data.get('teamId'))
+    const managedTeamId = title === '본부장' ? Number(data.get('managedTeamId')) || null : null
+    const leadTeam = title === '팀장' ? teamId : managedTeamId
+    const currentLead = leadTeam && accounts?.find(other => other.id !== account.id && other.managedTeamId === leadTeam)
+    const replaceLead = !!currentLead && window.confirm(currentLead.name + '님을 대신해 ' + account.name + '님을 팀장으로 지정할까요?')
+    if (currentLead && !replaceLead) return
     void run(async () => {
-      await teamWrite('users/' + account.id, 'PUT', input)
+      await teamWrite('users/' + account.id, 'PUT', { teamId, title, managedTeamId, replaceLead })
+      await onSessionChanged()
+      if (!uniqueTitles.includes(user.title) && uniqueTitles.includes(title)) return '회사 관리 권한을 이전했습니다.'
       setAccounts(await teamGet<Account[]>('users'))
+      setPickedTitles({})
+      if (history) loadHistory()
       await reloadTeams()
       return account.name + '님의 소속을 저장했습니다.'
     })
@@ -86,6 +108,15 @@ export default function OrgAdmin({ teams, reloadTeams, ownTeamId }: { teams: Tea
       setInviteUrl(url.toString())
       setInviteVersion(value => value + 1)
       return '초대 링크를 만들었습니다.'
+    })
+  }
+
+  function changeAccess(account: Account) {
+    void run(async () => {
+      await teamWrite('users/' + account.id + '/access', 'PUT', { active: !account.isActive })
+      setAccounts(await teamGet<Account[]>('users'))
+      if (history) loadHistory()
+      return account.name + (account.isActive ? '님 계정을 비활성화했습니다.' : '님 계정을 활성화했습니다.')
     })
   }
 
@@ -127,7 +158,7 @@ export default function OrgAdmin({ teams, reloadTeams, ownTeamId }: { teams: Tea
       <h2 id="org-invite-title">초대</h2>
       <form className="ttech-inline-form" onSubmit={invite}>
         <label>초대할 이메일<input name="email" type="email" required maxLength={254} /></label>
-        <label>팀<select name="teamId" aria-label="팀" required defaultValue={ownTeamId}>{teamOptions}</select></label>
+        <label>팀<select name="teamId" aria-label="팀" required defaultValue={user.teamId ?? teams[0]?.id}>{teamOptions}</select></label>
         <label>역할<select name="role" aria-label="역할" defaultValue="MEMBER"><option value="MEMBER">팀원</option><option value="LEAD">팀장</option></select></label>
         <button type="submit" disabled={pending}>초대 링크 만들기</button>
       </form>
@@ -140,23 +171,41 @@ export default function OrgAdmin({ teams, reloadTeams, ownTeamId }: { teams: Tea
       <h2 id="org-users-title">사용자 {accounts && `(${accounts.length})`}</h2>
       {!accounts && !error && <p role="status">사용자를 불러오는 중입니다.</p>}
       {accounts && <div className="ttech-table-wrap"><table className="ttech-table">
-        <thead><tr><th>이름</th><th>이메일</th><th>소속·권한·직급</th></tr></thead>
-        <tbody>{accounts.map(account => <tr key={account.id}>
+        <thead><tr><th>이름</th><th>이메일</th><th>소속·권한·직급</th><th>계정 상태</th></tr></thead>
+        <tbody>{accounts.map(account => {
+          const title = pickedTitles[account.id] ?? account.title
+          return <tr key={account.id}>
           <td>{account.name}</td><td>{account.email}</td>
-          <td><form className="ttech-inline-form" onSubmit={event => saveAccount(event, account)} aria-label={account.name + ' 소속 변경'}>
-              <select name="teamId" aria-label={account.name + ' 팀'} defaultValue={account.teamId}>{teamOptions}</select>
-              <select name="role" aria-label={account.name + ' 권한'} defaultValue={account.role}><option value="MEMBER">팀원 권한</option><option value="LEAD">팀장 권한</option></select>
-              <select name="title" aria-label={account.name + ' 직급'} defaultValue={account.title}>{titles.map(title => {
+          <td>{account.id === user.id ? <span>{account.teamName} · {account.title} · 내 계정</span>
+            : <form className="ttech-inline-form" onSubmit={event => saveAccount(event, account)} aria-label={account.name + ' 소속 변경'}>
+              <select name="title" aria-label={account.name + ' 직급'} value={title}
+                onChange={event => setPickedTitles(current => ({ ...current, [account.id]: event.target.value as Title }))}>{titles.map(title => {
                 const holder = uniqueTitles.includes(title) && accounts.find(other => other.title === title && other.id !== account.id)
-                if (title === '팀장') return <option key={title} value={title} disabled>팀장 (팀장 권한으로 지정)</option>
                 return <option key={title} value={title} disabled={!!holder}>{title}{holder ? ` (${holder.name})` : ''}</option>
               })}</select>
-              <label className="ttech-check"><input type="checkbox" name="isAdmin" defaultChecked={account.isAdmin} aria-label={account.name + ' 관리자 권한'} />관리자</label>
+              {uniqueTitles.includes(title) ? <span>소속 회사</span>
+                : <select name="teamId" aria-label={account.name + ' 팀'} required defaultValue={account.teamId ?? ''}><option value="" disabled>팀 선택</option>{teamOptions}</select>}
+              {title === '본부장' && <select name="managedTeamId" aria-label={account.name + ' 담당 팀'} defaultValue={account.managedTeamId ?? ''}>
+                <option value="">담당 팀 없음</option>{teamOptions}
+              </select>}
               <button type="submit" disabled={pending}>저장</button>
-            </form></td>
-        </tr>)}</tbody>
+            </form>}</td>
+          <td>{account.id === user.id ? '활성' : <button type="button" className="ttech-link" disabled={pending}
+            aria-label={account.name + (account.isActive ? ' 계정 비활성화' : ' 계정 활성화')}
+            onClick={() => changeAccess(account)}>{account.isActive ? '비활성화' : '활성화'}</button>}</td>
+        </tr>})}</tbody>
       </table></div>}
-      <p className="ttech-muted">팀장은 부서마다 1명이며, 팀장 권한을 주면 직급도 팀장이 되고 그 팀의 기존 팀장은 팀원 권한·프로가 됩니다. 직급은 본인이 가입할 때 고른 표시용이며 여기서 고칠 수 있습니다. 대표·본부장은 회사 전체에 각각 1명이고 전체 팀을 조회합니다. 관리자는 최소 1명 남아야 합니다. 팀을 옮겨도 이미 등록된 업무는 원래 팀에 남습니다.</p>
+    </section>
+    <section className="ttech-panel">
+      <h2>조직 변경 이력</h2>
+      {!history && <button type="button" className="ttech-secondary" onClick={loadHistory}>변경 이력 보기</button>}
+      {history?.length === 0 && <p>기록된 변경이 없습니다.</p>}
+      {!!history?.length && <ul>{history.map(entry => <li key={entry.id}>
+        <strong>{entry.actor} → {entry.target}</strong> · {new Date(entry.changedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
+        <ul>{Object.entries(entry.changes).map(([field, change]) => <li key={field}>
+          {changeLabels[field]} {historyValue(field, change.before)} → {historyValue(field, change.after)}
+        </li>)}</ul>
+      </li>)}</ul>}
     </section>
   </div>
 }

@@ -161,6 +161,22 @@ button.sw-stat:hover { border-color: #bfdbfe; }
 .sw-empty { margin-block: 6px; font-size: 12px; }
 .sw-drawer { position: fixed; inset: 0 0 0 auto; padding: 0; margin: 0; border: 0; width: min(410px,100%); height: 100dvh; max-width: none; max-height: none; background: #fff; color: var(--sw-body); box-shadow: -8px 0 26px #0f172a24; overflow: auto; }
 .sw-drawer::backdrop { background: #0f172a35; }
+.sw-drawer.sw-inline-detail { position: static; width: min(760px, 100%); height: auto; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: none; overflow: visible; }
+.sw-inline-detail form { min-height: auto; }
+.sw-inline-detail header, .sw-inline-detail footer { position: static; }
+.sw-inline-detail footer { flex-wrap: wrap; }
+.sw-work-files { width: min(760px, 100%); padding: 16px; border: 1px solid #e2e8f0; border-radius: 16px; background: white; }
+.sw-work-files form, .sw-work-files li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sw-work-files label { display: grid; gap: 4px; }
+.sw-work-files ul { padding: 0; }
+.sw-work-files a { color: var(--sw-primary); text-decoration: underline; overflow-wrap: anywhere; }
+@media print {
+  .sw-system:has(.sw-inline-detail) .sw-sidebar,
+  .sw-system:has(.sw-inline-detail) .sw-top,
+  .sw-inline-detail footer { display: none; }
+  .sw-system:has(.sw-inline-detail) { display: block; }
+  .sw-drawer.sw-inline-detail { width: 100%; border: 0; }
+}
 .sw-drawer header { position: sticky; top: 0; display: flex; align-items: center; gap: 7px; z-index: 1; padding: 14px 15px; background: white; border-bottom: 1px solid #e2e8f0; }
 .sw-drawer header > svg { color: #1d4ed8; }
 .sw-drawer header h2 { flex: 1; font-size: 17px; }

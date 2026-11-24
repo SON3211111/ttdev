@@ -34,7 +34,7 @@ export default function TopHeader({ portal, view, navigate, openWorkspace, searc
         <Bell size={20} />{count > 0 && <b>{count}</b>}
       </button>
       {user ? <details className="sw-profile">
-        <summary aria-label={user.name + ' 프로필'}><span className="sw-avatar">{user.name[0]}</span><span><strong>{user.name}</strong><small>{user.teamName} · {titleLabel(user)}</small></span><ChevronDown size={14} /></summary>
+        <summary aria-label={user.name + ' 프로필'}><span className="sw-avatar">{user.name[0]}</span><span><strong>{user.name}</strong><small>{user.membershipTeamId ? user.teamName : '회사'} · {titleLabel(user)}</small></span><ChevronDown size={14} /></summary>
         {/* 메뉴 항목을 고르면 드롭다운을 닫습니다. 같은 화면 틀 안에서 이동하면 열린 메뉴가 다음 화면을 가리기 때문입니다. */}
         <div onClick={event => event.currentTarget.closest('details')?.removeAttribute('open')}><button type="button" onClick={openWorkspace}>내 워크스페이스</button><button type="button" onClick={() => navigate('settings')}>설정</button><button type="button" onClick={logout}>로그아웃</button></div>
       </details> : <button type="button" className="sw-secondary" onClick={openWorkspace}>로그인</button>}
