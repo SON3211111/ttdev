@@ -24,7 +24,7 @@ async function main() {
     // 처음 설치: 첫 사용자가 소속 팀(경영지원팀)과 직급을 골라 관리자 겸 팀장이 되고, 조직 관리에서 기술영업 1팀 팀장을 초대합니다.
     await admin.goto(home)
     await admin.getByRole('heading', { name: /사내 업무 공간/ }).waitFor()
-    await admin.getByRole('button', { name: '워크스페이스', exact: true }).click()
+    await admin.getByRole('button', { name: '로그인', exact: true }).click()
     await admin.getByRole('heading', { name: '처음 설정' }).waitFor()
     await admin.getByLabel('이름', { exact: true }).fill('관리자 브라우저')
     await admin.getByLabel('이메일', { exact: true }).fill('admin-ui@example.test')
@@ -50,24 +50,14 @@ async function main() {
     assert.equal(await lead.getByLabel('직급', { exact: true }).inputValue(), '팀장')
     assert.equal(await lead.getByLabel('직급', { exact: true }).isEditable(), false)
     await lead.getByRole('button', { name: '팀에 참여하기' }).click()
-    // 워크스페이스 선택 화면에서 카드(내 팀 공간 / 개인 공간)를 눌러 공간을 엽니다.
-    async function workspace(page, name) {
-      const target = name.includes('개인') ? '개인 공간 열기' : '내 팀 공간 열기'
-      const chooser = page.getByRole('heading', { name: '접속할 워크스페이스를 선택하세요' })
-      await chooser.or(page.locator('.sw-profile summary')).or(page.getByRole('button', { name: '워크스페이스', exact: true })).first().waitFor()
-      if (await chooser.count() === 0) {
-        const profile = page.locator('.sw-profile summary')
-        if (await profile.count()) {
-          await profile.click()
-          await page.getByRole('button', { name: '내 워크스페이스', exact: true }).click()
-        } else {
-          await page.getByRole('button', { name: '워크스페이스', exact: true }).click()
-        }
-      }
-      await page.getByRole('button', { name: target, exact: true }).click()
+    // 워크스페이스 화면에서 내 팀 카드를 눌러 팀 캘린더를 엽니다. 개인 캘린더는 캘린더의 팀·개인 버튼으로 바꿉니다.
+    async function workspace(page) {
+      await page.goto(home + '/#workspaces')
+      await page.getByRole('heading', { name: '접속할 워크스페이스를 선택하세요' }).waitFor()
+      await page.getByRole('button', { name: '내 팀 공간 열기', exact: true }).click()
     }
-    // 와이어프레임처럼 워크스페이스 화면의 새 팀원 초대 버튼으로 바로 초대합니다.
-    await lead.getByRole('button', { name: '워크스페이스', exact: true }).click()
+    // 워크스페이스 화면의 새 팀원 초대 버튼으로 바로 초대합니다.
+    await lead.goto(home + '/#workspaces')
     await lead.getByRole('button', { name: '새 팀원 초대' }).click()
     await lead.getByLabel('초대할 이메일').fill('member-ui@example.test')
     await lead.getByRole('button', { name: '초대 링크 만들기' }).click()
@@ -79,7 +69,7 @@ async function main() {
     assert.equal(await lead.getByRole('region', { name: /전체 팀 현황/ }).count(), 0)
     await lead.getByRole('button', { name: '내 팀 공간 열기', exact: true }).click()
     await member.goto(home)
-    await member.getByRole('button', { name: '워크스페이스', exact: true }).click()
+    await member.getByRole('button', { name: '로그인', exact: true }).click()
     await member.getByRole('button', { name: '초대받아 가입' }).click()
     await member.getByLabel('초대 링크', { exact: true }).fill(memberInviteUrl)
     // 팀원으로 초대받으면 프로 직급이 고정됩니다.
@@ -89,7 +79,7 @@ async function main() {
     await member.getByLabel('이름', { exact: true }).fill('팀원 브라우저')
     await member.getByLabel('비밀번호').fill(password)
     await member.getByRole('button', { name: '팀에 참여하기' }).click()
-    await workspace(member, '팀 워크스페이스')
+    await workspace(member)
     await member.getByRole('button', { name: '새 업무 등록' }).click()
     const dialog = member.getByRole('dialog')
     await dialog.getByLabel('업체명').fill('브라우저 테스트 업체')
@@ -102,7 +92,7 @@ async function main() {
     await member.locator('.sw-widgets').getByRole('button', { name: /^10:30.*브라우저 테스트 업체/ }).first().waitFor()
     await member.reload()
     await member.locator('.sw-date-list').getByRole('button', { name: /브라우저 테스트 업체/ }).waitFor()
-    await workspace(lead, '팀 워크스페이스')
+    await workspace(lead)
     await lead.locator('.sw-events').getByRole('button', { name: /브라우저 테스트 업체/ }).click()
     assert.equal(await lead.getByRole('dialog').getByLabel('업무 내용 / 비고').inputValue(), '실제 DB로 저장한 팀 업무')
     assert.equal(await lead.getByRole('dialog').getByLabel('종료 시각').inputValue(), '11:45')
@@ -125,12 +115,14 @@ async function main() {
     assert.equal(await lead.locator('.sw-events').getByRole('button', { name: /브라우저 테스트 업체/ }).count(), 0)
     await lead.getByRole('button', { name: '초기화' }).click()
     await lead.locator('.sw-events').getByRole('button', { name: /브라우저 테스트 업체/ }).first().waitFor()
-    // 캘린더 KPI가 백엔드 대시보드 집계와 같은 기준인지 확인합니다.
+    // 캘린더 KPI는 이번 달 업무(scope=summary) 기준입니다. 새 DB라 이번 달 업무 = 전체 업무와 같은 숫자여야 합니다.
     const dashboard = await lead.evaluate(() => fetch('/api/team/dashboard').then(response => response.json()))
-    for (const [name, key] of [['오늘의 업무', 'today'], ['이번 주 예정', 'week'], ['기한 초과', 'overdue']]) {
+    for (const [name, key] of [['오늘의 업무', 'today'], ['기한 초과', 'overdue']]) {
       const count = await lead.locator('.sw-stat', { hasText: name }).locator('strong').innerText()
       assert.equal(parseInt(count, 10), dashboard[key].length, name)
     }
+    // 팀 캘린더 일정에는 담당자가 보입니다.
+    await lead.locator('.sw-events .sw-event-owner', { hasText: '담당자 팀원 브라우저' }).first().waitFor()
     await lead.getByLabel('담당자', { exact: true }).selectOption({ label: '내 업무' })
     assert.equal(await lead.locator('.sw-events').getByRole('button', { name: /브라우저 테스트 업체/ }).count(), 0)
     await lead.getByLabel('담당자', { exact: true }).selectOption({ label: '팀 전체' })
@@ -161,22 +153,21 @@ async function main() {
     await lead.getByRole('region', { name: '연계 회의' }).getByRole('link', { name: /일일회의/ }).click()
     await lead.waitForURL(/#team-reports\?kind=daily&date=/)
     await lead.getByText(/작성자 팀원 브라우저.*결재 완료/).waitFor()
-    await member.locator('.sw-profile summary').click()
-    await member.getByRole('button', { name: '내 워크스페이스', exact: true }).click()
-    await workspace(member, '개인 워크스페이스')
-    await member.getByRole('heading', { name: '개인 워크스페이스', exact: true }).waitFor()
-    assert.equal(await member.getByRole('button', { name: '회의·보고서', exact: true }).count(), 0)
+    // 팀/개인은 캘린더의 버튼으로 바꿉니다. 개인 캘린더에는 담당자 필터가 없고, 새 업무는 개인이 기본 선택입니다.
+    await workspace(member)
+    await member.getByRole('group', { name: '캘린더 전환' }).getByRole('button', { name: '개인', exact: true }).click()
+    await member.getByRole('heading', { name: '개인 캘린더', exact: true }).waitFor()
     assert.equal(await member.getByLabel('담당자', { exact: true }).count(), 0)
     await member.getByRole('button', { name: '새 업무 등록' }).click()
+    assert.equal(await dialog.getByRole('group', { name: '등록할 캘린더' }).getByRole('button', { name: '개인', exact: true }).getAttribute('aria-pressed'), 'true')
     await dialog.getByLabel('업체명').fill('개인 브라우저 업체')
     await dialog.getByLabel('업무 제목').fill('개인 브라우저 업무')
     await dialog.getByRole('button', { name: '업무 저장', exact: true }).click()
     await dialog.waitFor({ state: 'detached' })
     await member.reload()
-    await member.getByRole('heading', { name: '개인 워크스페이스', exact: true }).waitFor()
+    await member.getByRole('heading', { name: '개인 캘린더', exact: true }).waitFor()
     await member.locator('.sw-date-list').getByRole('button', { name: /개인 브라우저 업체/ }).waitFor()
-    await member.getByRole('button', { name: '메뉴 열기' }).click()
-    await member.getByRole('button', { name: '팀 공간 (기술영업 1팀)' }).click()
+    await member.getByRole('group', { name: '캘린더 전환' }).getByRole('button', { name: '팀', exact: true }).click()
     await member.getByRole('heading', { name: '영업 캘린더', exact: true }).waitFor()
     await member.locator('.sw-date-list').getByRole('button', { name: /브라우저 테스트 업체/ }).waitFor()
     assert.equal(await member.getByRole('button', { name: /개인 브라우저/ }).count(), 0)
@@ -196,7 +187,8 @@ async function main() {
     await director.getByLabel('이름', { exact: true }).fill('본부장 검증')
     await director.getByLabel('비밀번호').fill(password)
     await director.getByRole('button', { name: '팀에 참여하기' }).click()
-    await director.getByRole('button', { name: '워크스페이스', exact: true }).waitFor()
+    // 초대 수락 직후에는 가입 화면 틀의 '내 워크스페이스 열기' 안내가 보입니다.
+    await director.getByRole('button', { name: '내 워크스페이스 열기' }).waitFor()
     await admin.reload()
     await admin.getByLabel('본부장 검증 직급').selectOption('본부장')
     await admin.getByLabel('본부장 검증 담당 팀').selectOption({ label: '경영지원팀' })
@@ -228,14 +220,14 @@ async function main() {
     // 예전 홈 주소가 포털을 보여주고, 워크스페이스에서 다시 로그인할 수 있습니다.
     await member.goto(home + '/#home')
     await member.getByRole('heading', { name: /사내 업무 공간/ }).waitFor()
-    await member.getByRole('button', { name: '워크스페이스', exact: true }).click()
+    await member.getByRole('button', { name: '로그인', exact: true }).click()
     await member.getByRole('heading', { name: '로그인', exact: true }).waitFor()
     await member.getByLabel('이메일', { exact: true }).fill('member-ui@example.test')
     await member.getByLabel('비밀번호').fill(password)
     await member.getByRole('button', { name: '로그인', exact: true }).click()
     await member.getByRole('heading', { name: '접속할 워크스페이스를 선택하세요', exact: true }).waitFor()
     await member.getByRole('region', { name: /구성원/ }).getByText('팀원 브라우저').waitFor()
-    console.log('PASS Edge desktop and mobile: company representative setup, other-account organization changes, director team assignment, fixed invitation titles, team and personal workspaces, details, reports, read-only other-team work and login')
+    console.log('PASS Edge desktop and mobile: company representative setup, other-account organization changes, director team assignment, fixed invitation titles, team/personal calendar toggle, assignee labels, details, reports, read-only other-team work and login')
   } finally {
     await browser.close()
   }

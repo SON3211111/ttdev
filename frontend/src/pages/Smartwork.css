@@ -46,9 +46,6 @@
 .sw-brand-mark { display: grid; place-items: center; background: #1d4ed8; color: white; width: 36px; height: 36px; border-radius: 9px; }
 .sw-brand strong, .sw-brand small, .sw-profile strong, .sw-profile small { display: block; line-height: 1.25; }
 .sw-brand small, .sw-profile small { color: #64748b; font-size: 12px; margin-top: 3px; }
-.sw-gnb { display: flex; align-items: stretch; gap: 12px; height: 100%; }
-.sw-gnb button { padding: 0 9px; white-space: nowrap; border-bottom: 2px solid transparent; }
-.sw-gnb button:hover, .sw-gnb button[aria-current="page"] { color: var(--sw-primary); border-color: var(--sw-primary); font-weight: 700; }
 .sw-top-actions { display: flex; align-items: center; gap: 12px; flex: none; }
 .sw-bell { position: relative; }
 .sw-bell b { position: absolute; top: 1px; right: 0; min-width: 15px; padding: 0 3px; border-radius: 10px; background: #e11d48; color: #fff; font-size: 9px; }
@@ -66,8 +63,6 @@
 .sw-hero-decoration { position: absolute; z-index: -1; right: 2%; bottom: -38px; color: #bdd1fa; opacity: .62; transform: rotate(-12deg); }
 .sw-hero-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: #fff; border: 1px solid #dbe7fa; color: #1e40af; font-size: 13px; font-weight: 700; }
 .sw-hero h1 { margin-block: 12px; font-size: clamp(25px,3.5vw,42px); line-height: 1.22; letter-spacing: -.055em; word-break: keep-all; }
-.sw-hero-copy { margin-bottom: 20px; max-width: 600px; word-break: keep-all; }
-.sw-hero .sw-buttons > button { min-height: 41px; }
 .sw-quick, .sw-widgets { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; }
 .sw-quick { margin-block: 20px 0; gap: 20px; }
 .sw-quick-card { min-width: 0; min-height: 240px; padding: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -75,8 +70,6 @@
 .sw-quick-card .sw-quick-icon { width: 52px; height: 52px; border-radius: 14px; }
 .sw-quick-card h2 { margin-top: 10px; font-size: 20px; }
 .sw-quick-card p { font-size: 15px; line-height: 1.6; word-break: keep-all; }
-.sw-quick-card button { margin-top: auto; display: flex; align-items: center; gap: 6px; padding: 6px 0 0; color: #1d4ed8; font-size: 15px; font-weight: 700; }
-.sw-quick-card button:hover { text-decoration: underline; }
 .sw-system-workspace { display: grid; grid-template-columns: 240px minmax(0,1fr); }
 .sw-shell { min-width: 0; }
 .sw-sidebar { position: sticky; top: 0; height: 100dvh; align-self: start; background: var(--sw-nav); color: #cbd5e1; padding: 14px 12px; }
@@ -284,8 +277,6 @@ button.sw-stat:hover { border-color: #bfdbfe; }
 @media (max-width: 720px) {
   .sw-top { padding: 8px 12px; gap: 6px; }
   .sw-portal-top { height: auto; min-height: 64px; flex-wrap: wrap; }
-  .sw-gnb { order: 3; width: 100%; gap: 4px; }
-  .sw-gnb button { padding: 6px 4px; font-size: 13px; }
   .sw-profile summary > span:nth-child(2), .sw-profile summary > svg { display: none; }
   .sw-top-actions { gap: 4px; }
   .sw-portal { padding: 16px 12px; }
@@ -308,10 +299,6 @@ button.sw-stat:hover { border-color: #bfdbfe; }
 
 /* 사이드바 팀·개인 공간 전환 (와이어프레임) */
 .sw-space-switch { display: grid; gap: 2px; margin-top: 12px; padding: 4px; border-radius: 10px; background: #1e293b; }
-.sw-space-switch button { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border-radius: 7px; color: #94a3b8; font-size: 13px; font-weight: 600; text-align: left; }
-.sw-space-switch button i { width: 7px; height: 7px; border-radius: 50%; background: #64748b; flex: none; }
-.sw-space-switch button[aria-pressed="true"] { background: #fff; color: #0f172a; }
-.sw-space-switch button[aria-pressed="true"] i { background: #1d4ed8; }
 /* 상단 경로 표시 */
 .sw-breadcrumb { display: flex; align-items: center; gap: 6px; margin: 0; color: #64748b; font-size: 14px; white-space: nowrap; }
 .sw-breadcrumb strong { display: inline-flex; align-items: center; gap: 6px; color: #0f172a; }

@@ -71,7 +71,13 @@ async function inviteMember(email, name) {
 }
 
 const member = await inviteMember(memberEmail, '팀원')
-await post('auth/invite', 403, { email: observerEmail }, member.cookie)
+// 팀원도 자기 팀에 팀원으로 초대할 수 있습니다(팀장 자리·다른 팀은 거절). 팀원은 본인이 보낸 초대만 목록에서 봅니다.
+await post('auth/invite', 201, { email: observerEmail }, member.cookie)
+await post('auth/invite', 403, { email: 'member-lead@example.test', role: 'LEAD' }, member.cookie)
+await post('auth/invite', 403, { email: 'member-other@example.test', teamId: salesOne.id + 1 }, member.cookie)
+const ownInvites = (await request('auth/invites', 200, { cookie: member.cookie })).data
+assert.deepEqual(ownInvites.map(item => item.email), [observerEmail])
+assert.equal(ownInvites[0].invitedByName, '팀원')
 const observer = await inviteMember(observerEmail, '동료')
 await post('auth/login', 401, { email: memberEmail, password: 'wrong' })
 const login = await post('auth/login', 200, { email: memberEmail, password })
@@ -303,7 +309,7 @@ assert.deepEqual(longTerm.alerts, longAlerts)
 await post('work', 400, { ...workInput, alerts: ['60일 전'] }, otherLead.cookie)
 console.log('PASS long-range reminder options')
 
-// 초대 수락 대기 목록: 관리자는 전체, 팀장은 자기 팀만 보고, 재발송하면 같은 이메일의 초대는 1건으로 유지됩니다.
+// 초대 수락 대기 목록: 관리자는 전체, 팀장은 자기 팀, 다른 팀 사람은 이 팀 초대를 보지 못하고, 재발송하면 같은 이메일의 초대는 1건으로 유지됩니다.
 await post('auth/invite', 201, { email: 'pending-two@example.test', teamId: salesTwo.id }, admin.cookie)
 await post('auth/invite', 201, { email: 'pending-one@example.test' }, lead.cookie)
 const allInvites = (await request('auth/invites', 200, { cookie: admin.cookie })).data
@@ -312,7 +318,7 @@ assert.ok(allInvites.some(item => item.email === 'pending-one@example.test'))
 const teamInvites = (await request('auth/invites', 200, { cookie: lead.cookie })).data
 assert.ok(teamInvites.some(item => item.email === 'pending-one@example.test'))
 assert.ok(teamInvites.every(item => item.teamId === salesOne.id))
-await request('auth/invites', 403, { cookie: otherLead.cookie })
+assert.ok((await request('auth/invites', 200, { cookie: otherLead.cookie })).data.every(item => item.teamId !== salesOne.id))
 await post('auth/invite', 201, { email: 'pending-one@example.test' }, lead.cookie)
 assert.equal((await request('auth/invites', 200, { cookie: lead.cookie })).data.filter(item => item.email === 'pending-one@example.test').length, 1)
 console.log('PASS pending invite lists by role and resend')
