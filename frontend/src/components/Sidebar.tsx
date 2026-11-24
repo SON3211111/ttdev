@@ -1,4 +1,4 @@
-import { Bell, Building2, CalendarDays, CircleAlert, CircleCheck, ClipboardList, Clock3, LayoutGrid, Settings, X } from 'lucide-react'
+import { Bell, Building2, CalendarDays, CircleAlert, CircleCheck, ClipboardList, Clock3, LayoutGrid, Settings } from 'lucide-react'
 import { Brand } from './TopHeader'
 import type { View } from './smartwork-data'
 import type { Team } from '../api/team'
@@ -21,7 +21,6 @@ export default function Sidebar({ view, navigate, alerts, overdue, todayCount = 
   const visible = links.filter(([id]) => showClients || id !== 'clients')
   return <><aside className={`sw-sidebar ${open ? 'sw-sidebar-open' : ''}`} aria-label="워크스페이스 메뉴">
     <div className="sw-sidebar-brand"><button type="button" onClick={() => { navigate('portal'); close() }}><Brand short /></button>
-      <button type="button" className="sw-icon-button sw-mobile-menu" onClick={close} aria-label="메뉴 닫기"><X size={18} /></button>
     </div>
     {/* 팀/개인 전환은 캘린더의 팀·개인 버튼으로 합니다. 전사 조회 권한이 있으면 볼 팀을 여기서 고릅니다. */}
     <div className="sw-space-switch">

@@ -6,7 +6,7 @@ import { titleLabel, type TeamUser } from '../api/team'
 
 export function Brand({ short = false }: { short?: boolean }) {
   return <span className="sw-brand"><span className="sw-brand-mark"><Box size={22} aria-hidden="true" /></span>
-    <span><strong>{short ? 'T&T SALES SCHEDULE' : '(주)티앤테크'}</strong><small>{short ? '영업팀 업무 스케줄 관리' : '스마트워크 포털'}</small></span>
+    <span><strong>{short ? 'T&T SALES SCHEDULE' : '(주)티앤테크'}</strong><small>{short ? '업무 스케줄 관리' : '스마트워크 포털'}</small></span>
   </span>
 }
 
