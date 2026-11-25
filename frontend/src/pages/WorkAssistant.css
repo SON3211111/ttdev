@@ -1,0 +1,50 @@
+.sw-assistant-launcher {
+  position: fixed;
+  z-index: 10;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid #ffffff66;
+  border-radius: 50%;
+  background: var(--sw-primary);
+  color: #fff;
+  box-shadow: 0 6px 20px #0f172a3d;
+  cursor: pointer;
+}
+.sw-assistant-launcher:hover { background: var(--sw-primary-hover); }
+.sw-assistant-launcher:focus-visible { outline: 2px solid var(--sw-primary); outline-offset: 3px; }
+.sw-assistant-dialog {
+  position: fixed;
+  inset: auto max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) auto;
+  width: min(440px, calc(100% - 36px));
+  max-width: none;
+  max-height: min(700px, calc(100dvh - 36px));
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 12px 36px #0f172a40;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.sw-assistant-dialog::backdrop { background: #0f172a33; }
+.sw-assistant { max-width: 920px; padding: 32px 20px; margin: auto; }
+.sw-assistant-dialog .sw-assistant { min-height: 0; padding: 12px; }
+.sw-assistant-dialog .sw-assistant-panel:first-child { margin-top: 0; }
+.sw-assistant-panel { margin-top: 16px; padding: clamp(16px, 4vw, 28px); }
+.sw-assistant-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sw-assistant-panel h1 { display: flex; align-items: center; gap: 10px; font-size: 26px; }
+.sw-assistant-panel h2 { font-size: 19px; margin-bottom: 12px; }
+.sw-assistant-panel form { display: grid; gap: 10px; margin-top: 20px; }
+.sw-assistant-panel label { font-weight: 600; }
+.sw-assistant-panel textarea { width: 100%; color: inherit; font: inherit; border: 1px solid #cbd5e1; border-radius: 9px; padding: 12px; resize: vertical; }
+.sw-assistant-panel button { justify-self: start; }
+.sw-assistant-panel form + p { margin-top: 14px; }
+.sw-assistant-panel ul { display: grid; gap: 12px; list-style: none; padding: 0; }
+.sw-assistant-panel li { border-top: 1px solid #e2e8f0; padding-top: 12px; }
+.sw-assistant-panel li a { display: inline-flex; align-items: center; gap: 6px; color: var(--sw-primary); font-weight: 650; }
+.sw-assistant-panel small { display: block; color: #64748b; margin-block: 3px 8px; }
+.sw-assistant-text { white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -65,6 +65,15 @@
 .sw-hero h1 { margin-block: 12px; font-size: clamp(25px,3.5vw,42px); line-height: 1.22; letter-spacing: -.055em; word-break: keep-all; }
 .sw-quick, .sw-widgets { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; }
 .sw-quick { margin-block: 20px 0; gap: 20px; }
+.sw-briefing { margin-top: 20px; padding: clamp(16px, 3vw, 24px); }
+.sw-briefing h2 { display: flex; align-items: center; gap: 8px; font-size: 19px; margin-bottom: 12px; }
+.sw-briefing-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px; }
+.sw-briefing-groups section { min-width: 0; padding: 12px; background: #f8fafc; border-radius: 10px; }
+.sw-briefing-groups h3 { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
+.sw-briefing-groups h3 span { color: var(--sw-primary); }
+.sw-briefing ul { display: grid; gap: 4px; padding: 0; margin: 8px 0 0; list-style: none; }
+.sw-briefing a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-briefing a:hover { text-decoration: underline; }
 .sw-quick-card { min-width: 0; min-height: 240px; padding: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .sw-quick-icon, .sw-stat-icon { display: grid; place-items: center; width: 38px; height: 38px; background: #eff6ff; border-radius: 10px; color: #1d4ed8; }
 .sw-quick-card .sw-quick-icon { width: 52px; height: 52px; border-radius: 14px; }

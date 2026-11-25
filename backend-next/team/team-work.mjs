@@ -40,6 +40,32 @@ export async function teamDashboard(db, scope) {
   })
 }
 
+export async function teamBriefing(db, user, today = seoulToday()) {
+  const tomorrow = shiftDay(today, 1)
+  const rows = await query(db, `WITH briefing AS (
+    SELECT w.id,w.title,CONVERT(char(10),w.due_date,23) AS dueDate,
+      CASE WHEN w.personal_owner_id IS NULL THEN CONCAT('work/',w.id,'?team=',w.team_id)
+           ELSE CONCAT('personal-work/',w.id) END AS route,
+      CASE WHEN w.due_date<@today THEN 'overdue' WHEN w.due_date=@today THEN 'dueToday' ELSE 'tomorrow' END AS groupName
+    FROM team_work w
+    WHERE w.status<>'DONE'
+      AND (w.personal_owner_id=@owner OR (w.personal_owner_id IS NULL AND w.team_id=@team))
+      AND (w.due_date<=@today OR w.start_date=@tomorrow OR w.due_date=@tomorrow)
+  ), ranked AS (
+    SELECT *, COUNT(*) OVER(PARTITION BY groupName) AS total,
+      ROW_NUMBER() OVER(PARTITION BY groupName ORDER BY dueDate,id) AS position
+    FROM briefing
+  )
+  SELECT groupName,total,title,route,dueDate FROM ranked WHERE position<=3 ORDER BY groupName,position`,
+  { today, tomorrow, owner: user.id, team: user.teamId })
+  const groups = { dueToday: { total: 0, items: [] }, overdue: { total: 0, items: [] }, tomorrow: { total: 0, items: [] } }
+  for (const { groupName, total, ...item } of rows) {
+    groups[groupName].total = total
+    groups[groupName].items.push(item)
+  }
+  return Response.json({ date: today, ...groups })
+}
+
 export async function readWork(db, where, parameters, lock, scope) {
   if (!scope?.team && !scope?.owner) throw new Error('Work scope is required')
   const condition = scope.owner ? 'w.personal_owner_id=@workspaceOwner' : 'w.team_id=@workspaceTeam AND w.personal_owner_id IS NULL'

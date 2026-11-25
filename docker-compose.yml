@@ -20,12 +20,14 @@ services:
 
   # Next.js는 현재 t&tech 업무 API를 제공합니다.
   backend:
+    image: ${COMPOSE_PROJECT_NAME:-dev}-backend
     build:
       context: ./backend-next
     container_name: dev-backend
     restart: unless-stopped
-    environment:
+    environment: &backend-environment
       SQLSERVER_HOST: sqlserver
+      SQLSERVER_DATABASE: ${SQLSERVER_DATABASE:-appdb}
       SQLSERVER_USER: ${SQLSERVER_USER:-sa}
       SQLSERVER_PASSWORD: ${SQLSERVER_PASSWORD:-${MSSQL_SA_PASSWORD:-}}
       SQLSERVER_TRUST_CERTIFICATE: ${SQLSERVER_TRUST_CERTIFICATE:-true}
@@ -43,6 +45,19 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
+
+  assistant-index:
+    image: ${COMPOSE_PROJECT_NAME:-dev}-backend
+    restart: unless-stopped
+    environment: *backend-environment
+    command: ["node", "team/run-assistant-index.mjs"]
+    depends_on:
+      backend:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
 
   # 프론트 개발 서버입니다. ./frontend:/app은 PC의 폴더를 컨테이너에 연결해 파일 수정이 보이게 합니다.
   # /app/node_modules는 컨테이너 전용 라이브러리 공간으로 PC의 라이브러리와 섞이지 않게 합니다.
@@ -80,7 +95,7 @@ services:
       - ollama
       - qdrant
 
-  # Qdrant는 향후 t&tech AI 검색에 사용할 벡터 저장소입니다.
+  # Qdrant는 t&tech AI 검색에 사용하는 벡터 저장소입니다.
   # 원문은 SQL Server에 저장하며 Qdrant 데이터는 원문에서 재생성할 수 있어야 합니다.
   qdrant:
     image: qdrant/qdrant:latest
@@ -92,7 +107,7 @@ services:
       - qdrant_data:/qdrant/storage
 
   # Ollama는 생성/임베딩 모델을 실행합니다. 다운로드한 모델 파일은 전용 볼륨에 보관합니다.
-  # 메모리 사용을 줄이려고 동시에 처리하는 요청 수와 로딩 모델 수를 각각 1로 제한합니다.
+  # 검색과 답변 사이의 재로딩을 줄이도록 두 모델을 유지하고, 모델별 동시 처리는 1개로 제한합니다.
   ollama:
     image: ollama/ollama:latest
     container_name: dev-ollama
@@ -101,8 +116,8 @@ services:
     mem_limit: 4g
     environment:
       OLLAMA_NUM_PARALLEL: "1"
-      OLLAMA_MAX_LOADED_MODELS: "1"
-      OLLAMA_KEEP_ALIVE: "1m"
+      OLLAMA_MAX_LOADED_MODELS: "2"
+      OLLAMA_KEEP_ALIVE: "10m"
     ports:
       - "127.0.0.1:11434:11434"
     volumes:

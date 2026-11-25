@@ -18,6 +18,13 @@ async function teamList(db, where = '1=1', params = {}) {
   return query(db, `SELECT ${teamColumns} FROM teams t WHERE ${where} ORDER BY t.sort_order,t.id`, { ...params, today: seoulToday() })
 }
 
+export function visibleTeamCounts(db, user, teamName) {
+  const ownTeam = teamName === '우리팀' || teamName === '내팀'
+  const match = ownTeam ? 't.id=@team' : "REPLACE(t.name,N' ',N'')=@teamName"
+  return teamList(db, `(@allTeams=1 OR t.id=@team) AND ${match}`,
+    { team: user.teamId, teamName, allTeams: canViewAll(user) ? 1 : 0 })
+}
+
 function teamValues(input) {
   return {
     name: text(input.name, 'name', 60, true),

@@ -391,3 +391,122 @@ assert.equal(directorWithoutLead.teamId, salesOne.id)
 assert.equal(directorWithoutLead.managedTeamId, null)
 assert.equal(directorWithoutLead.role, 'MEMBER')
 console.log('PASS director membership, separate management scope, permissions and audit')
+
+const indexedInput = { ...workInput, title: 'scopeproof 소속팀 업무', notes: 'obsoleteproof 수정 전 메모' }
+const assistantWork = (await post('work', 201, indexedInput, lead.cookie)).data
+const assistantPrivate = (await post('personal/work', 201, { ...indexedInput, title: 'scopeproof 개인 업무', notes: '' }, lead.cookie)).data
+const assistantOther = (await post('work', 201, { ...indexedInput, title: 'scopeproof 타 팀 업무', notes: '' }, observer.cookie)).data
+const deletedSource = (await post('work', 201, { ...indexedInput, title: 'deletedproof 삭제 예정', notes: '' }, lead.cookie)).data
+await request('work/' + assistantWork.id, 200, { method: 'PUT', value: { ...indexedInput, notes: '최신 메모' }, cookie: lead.cookie })
+await request('work/' + deletedSource.id, 204, { method: 'DELETE', cookie: lead.cookie })
+await request('meetings/daily/2026-11-27', 200, { method: 'PUT',
+  value: { ...meeting, decisions: 'scopeproof 납품일 합의', action: 'draft' }, cookie: lead.cookie })
+const ask = (question, cookie, status = 200) => post('assistant', status, { question }, cookie)
+await ask('scopeproof', undefined, 401)
+const assistantResult = (await ask('scopeproof 납품일', lead.cookie)).data
+const ownSources = assistantResult.sources
+if (process.env.TEAM_VERIFY_AI_GENERATION === 'true') assert.ok(assistantResult.answer?.trim())
+if (process.env.TEAM_VERIFY_AI_GENERATION === 'false') assert.equal(assistantResult.unavailable, true)
+assert.deepEqual(new Set(ownSources.map(item => item.route)), new Set([
+  'work/' + assistantWork.id + '?team=' + salesOne.id, 'personal-work/' + assistantPrivate.id,
+  'team-reports?kind=daily&date=2026-11-27&team=' + salesOne.id,
+]))
+assert.ok(ownSources.some(item => item.excerpt.includes('최신 메모')))
+assert.ok(ownSources.some(item => item.excerpt.includes('scopeproof 납품일 합의')))
+const adminSources = (await ask('scopeproof', admin.cookie)).data.sources
+assert.ok(adminSources.some(item => item.route === 'work/' + assistantOther.id + '?team=' + salesTwo.id))
+assert.ok(adminSources.every(item => !item.route.startsWith('personal-work/')))
+for (const query of ['obsoleteproof', 'deletedproof']) {
+  assert.deepEqual((await ask(query, lead.cookie)).data, { sources: [], answer: null, unavailable: false })
+}
+console.log('PASS assistant permissions, meeting/work links, current contents and deleted records')
+
+await request('assistant/briefing', 401)
+const beforeBriefing = (await request('assistant/briefing', 200, { cookie: lead.cookie })).data
+const tomorrow = dayOffset(1)
+const old = dayOffset(-400)
+await post('work', 201, { ...workInput, title: '브리핑 오늘 마감', startDate: today, dueDate: today }, lead.cookie)
+await post('work', 201, { ...workInput, title: '브리핑 타 팀 마감', startDate: today, dueDate: today }, observer.cookie)
+await post('work', 201, { ...workInput, title: '브리핑 완료', startDate: today, dueDate: today, status: 'DONE' }, lead.cookie)
+const oldPersonal = (await post('personal/work', 201, { ...workInput, title: '브리핑 지난달 개인 업무', startDate: old, dueDate: old }, lead.cookie)).data
+await post('personal/work', 201, { ...workInput, title: '브리핑 내일 개인 일정', startDate: tomorrow, dueDate: tomorrow }, lead.cookie)
+const afterBriefing = (await request('assistant/briefing', 200, { cookie: lead.cookie })).data
+assert.equal(afterBriefing.date, today)
+assert.equal(afterBriefing.dueToday.total, beforeBriefing.dueToday.total + 1)
+assert.equal(afterBriefing.overdue.total, beforeBriefing.overdue.total + 1)
+assert.equal(afterBriefing.tomorrow.total, beforeBriefing.tomorrow.total + 1)
+assert.ok(afterBriefing.overdue.items.some(item => item.route === 'personal-work/' + oldPersonal.id))
+assert.equal((await request('assistant/briefing', 200, { cookie: admin.cookie })).data.overdue.items.some(item => item.route === 'personal-work/' + oldPersonal.id), false)
+console.log('PASS daily briefing counts, links, older overdue work and scope')
+
+const assignmentOwner = await inviteMember('assignment-owner@example.test', '박검증')
+const teamAssignments = []
+for (let index = 0; index < 6; index++) {
+  teamAssignments.push((await post('work', 201, { ...workInput, title: '담당 업무 ' + index }, assignmentOwner.cookie)).data.id)
+}
+await post('work', 201, { ...workInput, title: '완료한 담당 업무', status: 'DONE' }, assignmentOwner.cookie)
+const ownAssignment = (await post('personal/work', 201, { ...workInput, title: '개인 담당 업무' }, assignmentOwner.cookie)).data
+const assignment = '박검증프로가 지금 맡은 업무 뭐가 있어?'
+const leadAssignments = (await ask(assignment, lead.cookie)).data
+assert.equal(leadAssignments.kind, 'assignment')
+assert.equal(leadAssignments.unavailable, false)
+assert.match(leadAssignments.answer, /미완료 업무 6건/)
+assert.deepEqual(new Set(leadAssignments.sources.map(item => item.route)), new Set(teamAssignments.map(id => 'work/' + id + '?team=' + salesOne.id)))
+const ownerAssignments = (await ask(assignment, assignmentOwner.cookie)).data.sources
+assert.ok(ownerAssignments.some(item => item.route === 'personal-work/' + ownAssignment.id))
+assert.equal((await ask(assignment, observer.cookie)).data.sources.length, 0)
+console.log('PASS exact assignee lookup, full queue, completed and scope exclusions')
+
+const nextMonday = dayOffset(7 - ((new Date(today).getUTCDay() + 6) % 7))
+const thisWeekItem = (await post('work', 201, { ...workInput, title: '이번 주 마감 검증',
+  startDate: today, dueDate: today, status: 'IN_PROGRESS' }, assignmentOwner.cookie)).data
+const nextWeekItem = (await post('work', 201, { ...workInput, title: '다음 주 마감 검증',
+  startDate: nextMonday, dueDate: nextMonday }, assignmentOwner.cookie)).data
+const askWithContext = async (question, context) => (await post('assistant', 200, { question, context }, lead.cookie)).data
+const phrased = await askWithContext('박검증님 담당 건 뭐 있어?')
+assert.equal(phrased.kind, 'assignment')
+assert.equal(phrased.context.name, '박검증')
+const filteredWeek = await askWithContext('그중 이번 주 마감만', phrased.context)
+const filteredNext = await askWithContext('다음 주는?', filteredWeek.context)
+assert.equal(filteredWeek.context.dateField, 'due')
+assert.equal(filteredNext.context.name, '박검증')
+assert.ok(filteredWeek.criteria.some(item => item.includes('이번 주 마감일')))
+assert.ok(filteredWeek.sources.some(item => item.route === 'work/' + thisWeekItem.id + '?team=' + salesOne.id))
+assert.ok(filteredNext.sources.some(item => item.route === 'work/' + nextWeekItem.id + '?team=' + salesOne.id))
+assert.ok(filteredNext.sources.every(item => item.route !== 'work/' + thisWeekItem.id + '?team=' + salesOne.id))
+const progressOnly = await askWithContext('진행 중인 것만', phrased.context)
+assert.deepEqual(progressOnly.sources.map(item => item.title), ['이번 주 마감 검증'])
+const doneOnly = await askWithContext('완료된 것만', phrased.context)
+assert.deepEqual(doneOnly.sources.map(item => item.title), ['완료한 담당 업무'])
+await post('assistant', 400, { question: '다음 주는?', context: { ...phrased.context, status: 'not-a-status' } }, lead.cookie)
+console.log('PASS structured date/status follow-ups, visible criteria and validation')
+
+const countQuestion = '현재 솔루션개발2팀의 팀원수가 몇명이야?'
+const solutionTwo = teamList.find(team => team.name === '솔루션개발 2팀')
+await setAccount(assignmentOwner, { title: '프로', teamId: solutionTwo.id })
+const expectedCount = (await request('teams', 200, { cookie: admin.cookie })).data.find(team => team.id === solutionTwo.id).memberCount
+assert.equal(expectedCount, 1)
+assert.equal((await ask(countQuestion, admin.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
+assert.equal((await ask(countQuestion, assignmentOwner.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
+assert.equal((await ask(countQuestion, lead.cookie)).data.answer, '열람할 수 있는 팀 범위에서 해당 팀을 찾지 못했습니다.')
+const originalPhrasing = (await ask('박검증 프로가 맡은 업무가 뭐있어?', admin.cookie)).data
+assert.equal(originalPhrasing.kind, 'assignment')
+assert.equal(originalPhrasing.context.name, '박검증')
+console.log('PASS live team headcount, alternate spacing and permitted team scope')
+
+const sourceRoute = 'work/' + assistantWork.id + '?team=' + salesOne.id
+const otherRoute = 'work/' + assistantOther.id + '?team=' + salesTwo.id
+await request('work/' + assistantWork.id, 200, { method: 'PUT', value: { ...indexedInput, notes: '최신 메모', dueDate: '2026-12-08' }, cookie: lead.cookie })
+const followReference = (question, references) => post('assistant', 200, { question, references }, lead.cookie)
+const deadline = await followReference('그거 언제까지야?', [sourceRoute])
+assert.match(deadline.data.answer, /2026-12-08/)
+assert.deepEqual(deadline.data.sources.map(item => item.route), [sourceRoute])
+const unclear = await followReference('그거 언제까지야?', [sourceRoute, otherRoute])
+assert.deepEqual(unclear.data.sources, [])
+assert.match(unclear.data.answer, /여러 건/)
+const deniedReference = await followReference('그거 언제까지야?', [otherRoute])
+assert.deepEqual(deniedReference.data.sources, [])
+assert.match(deniedReference.data.answer, /어느 업무/)
+const explained = await followReference('그거 왜 변경됐어?', [sourceRoute])
+assert.equal(explained.data.sources[0].route, sourceRoute)
+console.log('PASS reference follow-up, current deadline, ambiguity and scope checks')

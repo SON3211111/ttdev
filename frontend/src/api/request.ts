@@ -1,13 +1,13 @@
 // API 공통 요청 함수입니다. 각 화면에서 쓰는 응답 타입을 호출자가 지정합니다.
-export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestInit = {}, timeoutMs = 15000): Promise<T> {
   try {
     const response = await fetch(path, {
       ...options,
       headers: { 'Content-Type': 'application/json', ...options.headers },
-      // 최대 15초만 기다립니다. 화면이 넘겨준 취소 신호가 있다면 둘 중 하나만 발생해도 요청을 중단합니다.
+      // 기본 15초를 기다립니다. 화면의 취소 신호나 시간 제한 중 먼저 발생하는 쪽으로 요청을 중단합니다.
       signal: options.signal
-        ? AbortSignal.any([options.signal, AbortSignal.timeout(15000)])
-        : AbortSignal.timeout(15000),
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)])
+        : AbortSignal.timeout(timeoutMs),
     })
     if (!response.ok) {
       const error = await response.json().catch(() => null)

@@ -1,10 +1,11 @@
 import { database, query } from '../../../db/db.mjs'
 import { ApiError } from '../../../lib/validation.mjs'
 import { auth, canViewAll, checkOrigin, requireUser } from '../../../team/team-auth.mjs'
-import { teamDashboard, teamWork } from '../../../team/team-work.mjs'
+import { teamBriefing, teamDashboard, teamWork } from '../../../team/team-work.mjs'
 import { teamReports } from '../../../team/team-reports.mjs'
 import { teamMeetings } from '../../../team/team-meetings.mjs'
 import { teams, users as orgUsers } from '../../../team/team-org.mjs'
+import { assistant } from '../../../team/team-assistant.mjs'
 
 export const runtime = 'nodejs'
 
@@ -28,6 +29,8 @@ async function teamScope(db, request, user, search, approval) {
 async function teamRequest(db, request, [resource, ...path], search) {
   if (resource === 'auth' && path.length === 1) return auth(db, request, path[0])
   const user = await requireUser(db, request)
+  if (resource === 'assistant' && path.length === 1 && path[0] === 'briefing' && request.method === 'GET') return teamBriefing(db, user)
+  if (resource === 'assistant' && !path.length && request.method === 'POST') return assistant(db, request, user)
   if (resource === 'personal') {
     const scope = { owner: user.id }
     if (path[0] === 'work') return teamWork(db, request, path.slice(1), search, user, scope)
