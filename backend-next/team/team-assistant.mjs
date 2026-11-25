@@ -6,6 +6,32 @@ import { asksWhichTeam, assigneeWorkQuestion, dateFields, defaultScope, extractC
 import { approvalQuestion, helpQuestion, helpText, meetingQuestion, orgQuestion, readApprovals, readMeetings, readOrg } from './assistant-insights.mjs'
 import { unassignedActiveCount, visibleTeamCounts, visibleTeamGroup } from './team-org.mjs'
 import { decisionHistoryQuestion, readDecisionHistory } from './assistant-decision-history.mjs'
+import { publishedTeamReport } from './team-reports.mjs'
+
+const weeklyReportQuestion = /주간\s*(?:업무\s*)?보고/u
+
+async function readWeeklyReport(db, user, question, today) {
+  const { team, period } = extractConditions(question, { today })
+  const beforeReport = question.split(weeklyReportQuestion, 1)[0]
+  const department = extractConditions(beforeReport, { today }).words.join('')
+  const selected = team?.replace(/\s/gu, '') || department || (user.teamId ? '우리팀' : null)
+  const reply = (answer, sources = []) => ({ kind: 'weeklyReport', answer, sources, unavailable: false })
+  if (!selected) return reply('어느 팀의 주간 업무보고를 보시겠어요?')
+  if (period?.endsWith('Month') || /^\d{4}-\d{2}$/u.test(period ?? '')) return reply('주간 업무보고를 확인할 주차나 날짜를 알려주세요.')
+  const [day] = workPeriod(period ?? 'thisWeek', today)
+  const [week, end] = workPeriod('thisWeek', day)
+  const [target] = await visibleTeamCounts(db, user, selected)
+  if (!target) return reply('열람 가능한 팀에서 요청하신 팀을 찾지 못했습니다.')
+  const title = `${target.name} 주간 업무보고`
+  const report = await publishedTeamReport(db, week, target.id)
+  if (!report) return reply(`${week} ~ ${end} 주차에 게시된 ${title}가 없습니다.`)
+  const lines = [['주요 성과', report.accomplishments], ['이슈·지원 요청', report.issues], ['다음 주 계획', report.nextPlan]]
+    .filter(([, content]) => content?.trim()).map(([label, content]) => `${label} — ${content}`)
+  return reply([`${title} (${week} ~ ${end})`, ...lines].join('\n'), [{
+    route: `team-reports?kind=personal&date=${week}&team=${target.id}`,
+    title, context: target.name, date: week, excerpt: lines.join('\n'),
+  }])
+}
 
 const factQuestion = /몇\s*(?:건|개|명|퍼센트|번)|비율|퍼센트|완료율|평균|합계|총합|통계|순위|누가|누구|팀장|명단|결재|승인\s*대기|실적/u
 const commonWords = new Set(['일정', '업무', '회의', '언제', '언제였지', '어떻게', '알려줘', '찾아줘', '있어', '뭐야', '정리해줘', '진행', '지금', '내용'])
@@ -359,6 +385,10 @@ export async function assistant(db, request, user) {
   const today = seoulToday()
   const structured = (result, mode = 'structured', outcome) => timing.finish(Response.json(result), mode, outcome)
   if (helpQuestion(question)) return structured({ kind: 'help', sources: [], answer: helpText, unavailable: false }, 'help')
+  if (weeklyReportQuestion.test(question)) {
+    const reportQuestion = await timing.measure('scope', () => normalizeMentionedTeam(db, question))
+    return structured(await timing.measure('sql', () => readWeeklyReport(db, user, reportQuestion, today)))
+  }
 
   // "솔루션개발 1팀 인원이랑 이번 주 업무"처럼 인원과 업무를 함께 물으면 두 답을 이어 붙인다.
   const compound = question.match(/(인원|구성원\s*수|몇\s*명)\s*(?:이랑|랑|하고|과|및|,|그리고)\s*/u)

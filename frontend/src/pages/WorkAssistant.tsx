@@ -8,7 +8,7 @@ const examples = ['삼성전자 납품 일정은 언제로 정했어?', '부서�
 type Source = { route: string; title: string; context: string; date: string; excerpt: string; approvalStatus?: keyof typeof approvalLabels | null }
 type WorkContext = { name: string | null; team: string | null; keyword?: string | null; period: string | null; status: string; dateField: string }
 type Evidence = { title: string; message: string | null; quotes: (Pick<Source, 'route' | 'title' | 'approvalStatus'> & { text: string })[] }
-const answerTitles = { history: '변경 경위', assignment: '업무 조회', meeting: '회의 조회', approval: '결재 조회', org: '조직 조회', stats: '업무 집계', help: '안내' }
+const answerTitles = { history: '변경 경위', assignment: '업무 조회', meeting: '회의 조회', weeklyReport: '주간 업무보고', approval: '결재 조회', org: '조직 조회', stats: '업무 집계', help: '안내' }
 type Answer = { answer: string | null; sources: Source[]; unavailable: boolean; kind?: keyof typeof answerTitles; criteria?: string[]; context?: WorkContext; evidence?: Evidence[] }
 
 export function AssistantLauncher() {

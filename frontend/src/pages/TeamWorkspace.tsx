@@ -7,7 +7,7 @@ import TeamMeetings from './TeamMeetings'
 import TeamInvites, { LeadTransfer, RemoveTeamMember } from './TeamInvites'
 import WorkspaceHome from './WorkspaceHome'
 import Smartwork from './Smartwork'
-import { meetingDetailRoute, smartViews, workDetailRoute, type View, type WorkDetailLocation } from '../components/smartwork-data'
+import { reportDetailRoute, smartViews, workDetailRoute, type View, type WorkDetailLocation } from '../components/smartwork-data'
 import './TeamWorkspace.css'
 
 const TeamChat = lazy(() => import('./TeamChat'))
@@ -110,10 +110,10 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
   const user = session?.user
   const isAdmin = !!user?.isAdmin
   const viewAll = canViewAll(user)
-  const meetingLink = meetingDetailRoute.exec(view)
+  const meetingLink = reportDetailRoute.exec(view)
   const linkedTeam = meetingLink?.[3] ? Number(meetingLink[3]) : undefined
   const linkedDay = meetingLink?.[2]
-  const currentReport = meetingLink ? meetingLink[1] as 'daily' | 'weekly' : reportTab
+  const currentReport = meetingLink ? meetingLink[1] as 'daily' | 'weekly' | 'personal' : reportTab
   // 기본은 내 팀입니다. 관리자·대표·본부장이 다른 팀을 고르면 그 팀을 읽기 전용으로 보고, 요청에 ?team=을 붙입니다.
   const teamView = ['team-calendar', 'team-reports'].includes(view) ||
     (view.startsWith('smart-') && !['smart-portal', 'smart-workspace', 'smart-settings'].includes(view))
@@ -254,7 +254,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
       <button type="button" aria-pressed={currentReport === 'personal'} onClick={() => chooseReport('personal')}>주간 업무보고</button>
     </div>
     {viewTeam && <p className="ttech-muted">{viewTeamName} 보고서 조회{isAdmin && ['대표', '본부장'].includes(user.title) ? ' · 회의 결재 가능' : ''}</p>}
-    {currentReport === 'personal' ? <TeamReports key={'reports-' + (viewTeam ?? 'own')} user={user} members={members} teamId={viewTeam} readOnly={!!viewTeam} />
+    {currentReport === 'personal' ? <TeamReports key={'reports-' + (viewTeam ?? 'own') + '-' + (linkedDay ?? '')} user={user} members={members} teamId={viewTeam} readOnly={!!viewTeam} initialWeek={linkedDay} />
       : <TeamMeetings key={currentReport + '-' + (viewTeam ?? 'own') + '-' + (linkedDay ?? '')}
         user={user} kind={currentReport} teamId={viewTeam} readOnly={!!viewTeam} initialDay={linkedDay} />}
   </>

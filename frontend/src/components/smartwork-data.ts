@@ -14,7 +14,7 @@ export type View = 'portal' | 'calendar' | 'clients' | 'reports' | 'settings' | 
 export const smartViews = new Set<string>(['portal', 'calendar', 'clients', 'reports', 'settings', 'today', 'notifications', 'overdue', 'completed', 'workspace'])
 export const workDetailRoute = /^(work|personal-work)\/(\d+)(?:\?team=(\d+))?$/
 export type WorkDetailLocation = `work/${string}` | `personal-work/${string}`
-export const meetingDetailRoute = /^team-reports\?kind=(daily|weekly)&date=(\d{4}-\d{2}-\d{2})(?:&team=(\d+))?$/
+export const reportDetailRoute = /^team-reports\?kind=(daily|weekly|personal)&date=(\d{4}-\d{2}-\d{2})(?:&team=(\d+))?$/
 export const workCode = (id: string) => 'TSK-' + id.padStart(4, '0')
 export const categoriesByKind: Record<TeamKind, Category[]> = {
   SALES: ['estimate', 'meeting', 'delivery', 'etc'],

@@ -3,6 +3,36 @@ import test from 'node:test'
 import { assistant, completeSentences } from './team-assistant.mjs'
 import { teamBriefing } from './team-work.mjs'
 import { workQuestion, workPeriod } from './assistant-work-query.mjs'
+import { seoulToday } from '../lib/validation.mjs'
+
+test('이번 주 주간업무보고는 열람 가능한 팀의 게시된 보고서를 조회한다', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('SQL로 답해야 한다') })
+  const [week] = workPeriod('thisWeek', seoulToday())
+  const run = async (allowed, published = true) => {
+    const db = { request() {
+      const params = {}
+      return { input(name, _type, value) { params[name] = value }, async query(sql) {
+        if (sql.includes('FROM teams')) return { recordset: !sql.includes('FROM teams t') || allowed ? [{ id: 5, name: '솔루션개발 2팀' }] : [] }
+        assert.match(sql, /submitted_at IS NOT NULL/u)
+        assert.deepEqual(params, { team: 5, week })
+        return { recordset: published ? [{ accomplishments: '기능 검증 완료', issues: '', nextPlan: '배포 준비' }] : [] }
+      } }
+    } }
+    return (await assistant(db, new Request('http://localhost/api/team/assistant', {
+      method: 'POST', body: JSON.stringify({ question: '솔루션개발2팀 주간업무보고 이번주거' }),
+    }), { id: 3, teamId: allowed ? 5 : 8 })).json()
+  }
+  const found = await run(true)
+  assert.match(found.answer, /기능 검증 완료/u)
+  assert.equal(found.sources[0].route, 'team-reports?kind=personal&date=' + week + '&team=5')
+  const denied = await run(false)
+  assert.deepEqual(denied.sources, [])
+  assert.match(denied.answer, /열람/u)
+  const empty = await run(true, false)
+  assert.deepEqual(empty.sources, [])
+  assert.match(empty.answer, /게시된 솔루션개발 2팀 주간 업무보고가 없습니다/u)
+  assert.equal(fetch.mock.calls.length, 0)
+})
 
 test('담당자를 묻는 표현은 업무 검색어가 아닌 답변 유형으로 처리한다', async t => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('SQL로 답해야 한다') })

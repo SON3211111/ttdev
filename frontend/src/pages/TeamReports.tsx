@@ -62,9 +62,9 @@ function ReportForm({ report, publishLabel, busy, onSave }: {
 }
 
 // 관리자는 teamId로 고른 팀의 게시된 팀 보고만 읽습니다.
-export default function TeamReports({ user, members, teamId, readOnly = false }: { user: TeamUser; members: TeamMember[]; teamId?: number; readOnly?: boolean }) {
-  const [week, setWeek] = useState(currentWeek)
-  const [mode, setMode] = useState<'personal' | 'team' | 'submissions'>(readOnly ? 'team' : 'personal')
+export default function TeamReports({ user, members, teamId, readOnly = false, initialWeek }: { user: TeamUser; members: TeamMember[]; teamId?: number; readOnly?: boolean; initialWeek?: string }) {
+  const [week, setWeek] = useState(() => initialWeek ?? currentWeek())
+  const [mode, setMode] = useState<'personal' | 'team' | 'submissions'>(readOnly || initialWeek ? 'team' : 'personal')
   const [reports, setReports] = useState<Reports>()
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')

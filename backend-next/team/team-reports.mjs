@@ -7,6 +7,13 @@ const fields = ['accomplishments', 'issues', 'nextPlan']
 const columns = `r.user_id AS userId,u.name,r.accomplishments,r.issues,r.next_plan AS nextPlan,
   r.snapshot,r.submitted_at AS submittedAt`
 
+export async function publishedTeamReport(db, week, team) {
+  const [report] = await query(db, `SELECT TOP (1) accomplishments,issues,next_plan AS nextPlan
+    FROM team_reports WHERE kind='team' AND week_start=@week AND team_id=@team AND submitted_at IS NOT NULL
+    ORDER BY submitted_at DESC,user_id`, { week, team })
+  return report
+}
+
 function reportView(row) {
   if (!row) return null
   const { snapshot, ...report } = row
