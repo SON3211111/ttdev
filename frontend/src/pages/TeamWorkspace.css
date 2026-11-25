@@ -100,8 +100,6 @@ body:has(.ttech-shell) { background: var(--sw-canvas); }
 .ttech-account-form { display: grid; grid-template-columns: 110px minmax(160px, 220px) 56px; align-items: center; gap: 8px; }
 .ttech-account-form > span { padding-inline: 9px; color: #475569; white-space: nowrap; }
 .ttech-account-form select { width: 100%; min-width: 0; }
-.ttech-account-form label { display: grid; gap: 4px; }
-.ttech-account-teams { display: grid; gap: 8px; }
 .ttech-own-account { display: block; margin-top: 2px; color: #64748b; white-space: nowrap; }
 .ttech-account-status { width: 6rem; white-space: nowrap; }
 .ttech-account-status > button { display: block; margin-top: 2px; padding: 0; font-size: 13px; }

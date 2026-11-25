@@ -79,7 +79,7 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
     const data = new FormData(event.currentTarget)
     const title = pickedTitles[account.id] ?? account.title
     const teamId = Number(data.get('teamId')) || null
-    const managedTeamId = title === '본부장' ? Number(data.get('managedTeamId')) || null : null
+    const managedTeamId = title === '본부장' ? account.managedTeamId : null
     const leadTeam = title === '팀장' ? teamId : managedTeamId
     const currentLead = leadTeam && accounts?.find(other => other.id !== account.id && other.managedTeamId === leadTeam)
     const replaceLead = !!currentLead && window.confirm(currentLead.name + '님을 대신해 ' + account.name + '님을 팀장으로 지정할까요?')
@@ -188,15 +188,17 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
           const title = pickedTitles[account.id] ?? account.title
           const ownAccount = account.id === user.id
           const higherRank = user.title === '본부장' && account.title === '대표'
+          const membershipKey = teams.some(team => team.id === account.teamId) ? account.teamId : 'no-membership-option'
+          const director = title === '본부장'
           return <tr key={account.id}>
           <td>{account.name}{ownAccount && <small className="ttech-own-account">내 계정</small>}</td><td>{account.email}</td>
           <td>{ownAccount && account.title === '본부장'
             ? <form className="ttech-inline-form ttech-account-form" onSubmit={saveOwnMembership} aria-label="내 소속팀 변경">
               <span>{account.title}</span>
-              <select name="teamId" aria-label="내 소속팀" defaultValue={account.teamId ?? ''}>
-                <option value="">회사 소속 (팀 없음)</option>{teamOptions}
+              <select key={membershipKey} name="teamId" aria-label="내 소속팀" defaultValue={account.teamId ?? ''}>
+                <option value="">회사 소속</option>{teamOptions}
               </select>
-              <button type="submit" disabled={pending}>저장</button>
+              <button type="submit" disabled={pending || teams.length === 0}>저장</button>
             </form>
             : ownAccount || higherRank ? <div className="ttech-account-form">
               <span>{account.title}</span>
@@ -208,17 +210,13 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
                 const holder = uniqueTitles.includes(title) && accounts.find(other => other.title === title && other.id !== account.id)
                 return <option key={title} value={title} disabled={!!holder}>{title}{holder ? ` (${holder.name})` : ''}</option>
               })}</select>
-              {title === '본부장' ? <div className="ttech-account-teams">
-                <select name="teamId" aria-label={account.name + ' 소속팀'} defaultValue={account.title === '본부장' ? account.teamId ?? '' : ''}>
-                  <option value="">회사 소속 (팀 없음)</option>{teamOptions}
-                </select>
-                <label>담당 팀<select name="managedTeamId" defaultValue={account.managedTeamId ?? ''}>
-                  <option value="">담당 팀 없음</option>{teamOptions}
-                </select></label>
-              </div>
-                : uniqueTitles.includes(title) ? <span>회사</span>
-                : <select name="teamId" aria-label={account.name + ' 팀'} required defaultValue={account.teamId ?? ''}><option value="" disabled>{account.teamId ? '팀 선택' : '소속 없음 · 팀 선택'}</option>{teamOptions}</select>}
-              <button type="submit" disabled={pending}>저장</button>
+              {title === '대표' ? <span>회사</span>
+                : <select key={`${director}:${membershipKey}`} name="teamId" aria-label={account.name + ' 팀'} required={!director}
+                    defaultValue={director && account.title !== '본부장' ? '' : account.teamId ?? ''}>
+                  <option value="" disabled={!director}>{director ? '회사 소속' : account.teamId ? '팀 선택' : '소속 없음 · 팀 선택'}</option>
+                  {teamOptions}
+                </select>}
+              <button type="submit" disabled={pending || teams.length === 0}>저장</button>
             </form>}</td>
           <td className="ttech-account-status">
             <strong>{account.isActive ? '활성' : '비활성'}</strong>
