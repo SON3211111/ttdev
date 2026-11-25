@@ -1,6 +1,6 @@
-import { query, transaction } from './db.mjs'
+import { query, transaction } from '../db/db.mjs'
 import { assertTitleAvailable, canViewAll, requireAdmin, titles, uniqueTitles } from './team-auth.mjs'
-import { ApiError, body, choice, invalid, seoulToday, text, validate } from './validation.mjs'
+import { ApiError, body, choice, invalid, seoulToday, text, validate } from '../lib/validation.mjs'
 
 const kinds = ['SALES', 'DEV', 'TECH', 'SUPPORT']
 const teamColumns = `t.id,t.name,t.kind,t.location,
@@ -61,7 +61,7 @@ async function uniqueName(tx, name, id = 0) {
 // 관리자의 사용자 관리: 전체 사용자 조회, 팀 이동, 팀장 지정, 직급 수정, 관리자 권한 주기·회수.
 // 팀장을 지정하면 그 팀의 기존 팀장은 팀원이 됩니다. 관리자는 최소 1명 남아야 합니다. 팀을 옮겨도 이미 등록된 업무는 원래 팀에 남습니다.
 const accountColumns = `u.id,u.name,u.email,u.is_admin AS isAdmin,u.is_active AS isActive,u.title,
-  u.team_id AS teamId,COALESCE(t.name,N'회사') AS teamName,u.managed_team_id AS managedTeamId`
+  u.team_id AS teamId,COALESCE(t.name,CASE WHEN u.title=N'프로' THEN N'소속 없음' ELSE N'회사' END) AS teamName,u.managed_team_id AS managedTeamId`
 const organizationState = 'id,title,team_id AS teamId,managed_team_id AS managedTeamId,is_admin AS isAdmin,is_active AS isActive'
 
 async function recordChange(tx, actor, before, after) {
@@ -73,10 +73,13 @@ async function recordChange(tx, actor, before, after) {
 }
 
 async function organizationTarget(tx, actor, id) {
-  const [manager] = await query(tx, 'SELECT is_admin AS isAdmin FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id AND is_active=1', { id: actor })
+  const [manager] = await query(tx, 'SELECT title,is_admin AS isAdmin FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id AND is_active=1', { id: actor })
   requireAdmin(manager ?? {})
   const [target] = await query(tx, `SELECT ${organizationState} FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id`, { id })
   if (!target) throw new ApiError(404, 'USER_NOT_FOUND', '사용자를 찾을 수 없습니다.')
+  if (manager.title === '본부장' && target.title === '대표') {
+    throw new ApiError(403, 'HIGHER_RANK', '본부장은 대표 계정을 변경할 수 없습니다.')
+  }
   return target
 }
 
@@ -105,9 +108,50 @@ async function transferLead(db, request, user) {
   })
 }
 
+async function removeMember(db, request, user) {
+  const { userId } = await body(request, ['userId'])
+  const id = idOf(userId)
+  const forbidden = () => new ApiError(403, 'FORBIDDEN', '담당 팀의 활성 팀원만 내보낼 수 있습니다.')
+  if (id === user.id) throw forbidden()
+  return transaction(db, async tx => {
+    const [manager] = await query(tx, 'SELECT managed_team_id AS managedTeamId FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id AND is_active=1', { id: user.id })
+    if (!manager?.managedTeamId) throw forbidden()
+    const [target] = await query(tx, `SELECT ${organizationState} FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id`, { id })
+    if (!target?.isActive || target.isAdmin || target.managedTeamId || target.title !== '프로' || target.teamId !== manager.managedTeamId) {
+      throw forbidden()
+    }
+    await query(tx, 'UPDATE team_users SET team_id=NULL WHERE id=@id', { id })
+    await recordChange(tx, user.id, target, { teamId: null })
+    return new Response(null, { status: 204 })
+  })
+}
+
+async function saveOwnMembership(db, request, user) {
+  const { teamId: value } = await body(request, ['teamId'])
+  if (value !== null && !Number.isSafeInteger(value)) validate('teamId', '소속팀을 선택해 주세요.')
+  const teamId = value === null ? null : idOf(value)
+  return transaction(db, async tx => {
+    const [account] = await query(tx, `SELECT ${organizationState} FROM team_users WITH (UPDLOCK,HOLDLOCK) WHERE id=@id AND is_active=1`, { id: user.id })
+    if (!account?.isAdmin || account.title !== '본부장') {
+      throw new ApiError(403, 'FORBIDDEN', '본부장만 자신의 소속팀을 변경할 수 있습니다.')
+    }
+    if (teamId !== null) {
+      const [team] = await query(tx, 'SELECT id FROM teams WHERE id=@id', { id: teamId })
+      if (!team) validate('teamId', '소속팀을 선택해 주세요.')
+    }
+    if (teamId !== account.teamId) {
+      await query(tx, 'UPDATE team_users SET team_id=@teamId WHERE id=@id', { id: user.id, teamId })
+      await recordChange(tx, user.id, account, { teamId })
+    }
+    return new Response(null, { status: 204 })
+  })
+}
+
 export async function users(db, request, path, user) {
+  if (path.length === 1 && path[0] === 'remove-member' && request.method === 'POST') return removeMember(db, request, user)
   if (path.length === 1 && path[0] === 'lead-transfer' && request.method === 'POST') return transferLead(db, request, user)
   requireAdmin(user)
+  if (path.length === 1 && path[0] === 'my-membership' && request.method === 'PUT') return saveOwnMembership(db, request, user)
   if (!path.length && request.method === 'GET') {
     return Response.json(await query(db, `SELECT ${accountColumns}
       FROM team_users u LEFT JOIN teams t ON t.id=u.team_id ORDER BY CASE WHEN u.team_id IS NULL THEN 0 ELSE 1 END,t.sort_order,
@@ -137,9 +181,10 @@ export async function users(db, request, path, user) {
   const input = await body(request, ['teamId', 'title', 'managedTeamId', 'replaceLead'])
   const title = choice(input.title, 'title', titles)
   const isAdmin = uniqueTitles.includes(title)
-  const teamId = isAdmin ? null : Number.isSafeInteger(input.teamId) && input.teamId > 0 ? idOf(input.teamId) : null
+  if (input.teamId != null && !Number.isSafeInteger(input.teamId)) validate('teamId', '소속 팀을 선택해 주세요.')
+  const teamId = input.teamId == null ? null : idOf(input.teamId)
   if (!isAdmin && !teamId) validate('teamId', '소속 팀을 선택해 주세요.')
-  if (isAdmin && input.teamId != null) validate('teamId', '대표·본부장의 소속은 회사입니다.')
+  if (title === '대표' && teamId !== null) validate('teamId', '대표의 소속은 회사입니다.')
   if (input.managedTeamId != null && (title !== '본부장' || !Number.isSafeInteger(input.managedTeamId))) validate('managedTeamId')
   const role = title === '팀장' ? 'LEAD' : 'MEMBER'
   const managedTeamId = role === 'LEAD' ? teamId : input.managedTeamId == null ? null : idOf(input.managedTeamId)
@@ -147,9 +192,13 @@ export async function users(db, request, path, user) {
     const target = await organizationTarget(tx, user.id, id)
     if (target.isActive && target.isAdmin && !isAdmin) await keepActiveAdmin(tx)
     if (!target.isActive && (isAdmin || managedTeamId)) validate('title', '활성 계정에만 관리 권한을 지정할 수 있습니다.')
-    if (teamId || managedTeamId) {
-      const [team] = await query(tx, 'SELECT id FROM teams WHERE id=@id', { id: teamId ?? managedTeamId })
+    if (teamId) {
+      const [team] = await query(tx, 'SELECT id FROM teams WHERE id=@id', { id: teamId })
       if (!team) validate('teamId', '팀을 선택해 주세요.')
+    }
+    if (managedTeamId && managedTeamId !== teamId) {
+      const [team] = await query(tx, 'SELECT id FROM teams WHERE id=@id', { id: managedTeamId })
+      if (!team) validate('managedTeamId', '담당 팀을 선택해 주세요.')
     }
     if (managedTeamId) {
       const [previous] = await query(tx, `SELECT ${organizationState} FROM team_users WITH (UPDLOCK,HOLDLOCK)

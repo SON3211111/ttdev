@@ -32,7 +32,7 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
   function historyValue(field: string, value: string | number | boolean | null) {
     if (typeof value === 'number') return teams.find(team => team.id === value)?.name ?? String(value)
     if (typeof value === 'boolean') return value ? '있음' : '없음'
-    return value ?? (field === 'teamId' ? '회사' : '미지정')
+    return value ?? (field === 'teamId' ? '소속 팀 없음' : '미지정')
   }
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     const title = pickedTitles[account.id] ?? account.title
-    const teamId = uniqueTitles.includes(title) ? null : Number(data.get('teamId'))
+    const teamId = Number(data.get('teamId')) || null
     const managedTeamId = title === '본부장' ? Number(data.get('managedTeamId')) || null : null
     const leadTeam = title === '팀장' ? teamId : managedTeamId
     const currentLead = leadTeam && accounts?.find(other => other.id !== account.id && other.managedTeamId === leadTeam)
@@ -93,6 +93,18 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
       if (history) loadHistory()
       await reloadTeams()
       return account.name + '님의 소속을 저장했습니다.'
+    })
+  }
+
+  function saveOwnMembership(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const teamId = Number(new FormData(event.currentTarget).get('teamId')) || null
+    void run(async () => {
+      await teamWrite('users/my-membership', 'PUT', { teamId })
+      const [updated] = await Promise.all([teamGet<Account[]>('users'), onSessionChanged(), reloadTeams()])
+      setAccounts(updated)
+      if (history) loadHistory()
+      return '내 소속팀을 저장했습니다.'
     })
   }
 
@@ -171,28 +183,49 @@ export default function OrgAdmin({ teams, reloadTeams, user, onSessionChanged }:
       <h2 id="org-users-title">사용자 {accounts && `(${accounts.length})`}</h2>
       {!accounts && !error && <p role="status">사용자를 불러오는 중입니다.</p>}
       {accounts && <div className="ttech-table-wrap"><table className="ttech-table">
-        <thead><tr><th>이름</th><th>이메일</th><th>소속·권한·직급</th><th>계정 상태</th></tr></thead>
+        <thead><tr><th>이름</th><th>이메일</th><th>소속·권한·직급</th><th className="ttech-account-status">계정 상태</th></tr></thead>
         <tbody>{accounts.map(account => {
           const title = pickedTitles[account.id] ?? account.title
+          const ownAccount = account.id === user.id
+          const higherRank = user.title === '본부장' && account.title === '대표'
           return <tr key={account.id}>
-          <td>{account.name}</td><td>{account.email}</td>
-          <td>{account.id === user.id ? <span>{account.teamName} · {account.title} · 내 계정</span>
+          <td>{account.name}{ownAccount && <small className="ttech-own-account">내 계정</small>}</td><td>{account.email}</td>
+          <td>{ownAccount && account.title === '본부장'
+            ? <form className="ttech-inline-form ttech-account-form" onSubmit={saveOwnMembership} aria-label="내 소속팀 변경">
+              <span>{account.title}</span>
+              <select name="teamId" aria-label="내 소속팀" defaultValue={account.teamId ?? ''}>
+                <option value="">회사 소속 (팀 없음)</option>{teamOptions}
+              </select>
+              <button type="submit" disabled={pending}>저장</button>
+            </form>
+            : ownAccount || higherRank ? <div className="ttech-account-form">
+              <span>{account.title}</span>
+              <span>{account.teamName}</span>
+            </div>
             : <form className="ttech-inline-form ttech-account-form" onSubmit={event => saveAccount(event, account)} aria-label={account.name + ' 소속 변경'}>
               <select name="title" aria-label={account.name + ' 직급'} value={title}
                 onChange={event => setPickedTitles(current => ({ ...current, [account.id]: event.target.value as Title }))}>{titles.map(title => {
                 const holder = uniqueTitles.includes(title) && accounts.find(other => other.title === title && other.id !== account.id)
                 return <option key={title} value={title} disabled={!!holder}>{title}{holder ? ` (${holder.name})` : ''}</option>
               })}</select>
-              {title === '본부장' ? <select name="managedTeamId" aria-label={account.name + ' 담당 팀'} defaultValue={account.managedTeamId ?? ''}>
-                <option value="">담당 팀 없음</option>{teamOptions}
-              </select>
-                : uniqueTitles.includes(title) ? <span>소속 회사</span>
-                : <select name="teamId" aria-label={account.name + ' 팀'} required defaultValue={account.teamId ?? ''}><option value="" disabled>팀 선택</option>{teamOptions}</select>}
+              {title === '본부장' ? <div className="ttech-account-teams">
+                <select name="teamId" aria-label={account.name + ' 소속팀'} defaultValue={account.title === '본부장' ? account.teamId ?? '' : ''}>
+                  <option value="">회사 소속 (팀 없음)</option>{teamOptions}
+                </select>
+                <label>담당 팀<select name="managedTeamId" defaultValue={account.managedTeamId ?? ''}>
+                  <option value="">담당 팀 없음</option>{teamOptions}
+                </select></label>
+              </div>
+                : uniqueTitles.includes(title) ? <span>회사</span>
+                : <select name="teamId" aria-label={account.name + ' 팀'} required defaultValue={account.teamId ?? ''}><option value="" disabled>{account.teamId ? '팀 선택' : '소속 없음 · 팀 선택'}</option>{teamOptions}</select>}
               <button type="submit" disabled={pending}>저장</button>
             </form>}</td>
-          <td>{account.id === user.id ? '활성' : <button type="button" className="ttech-link" disabled={pending}
-            aria-label={account.name + (account.isActive ? ' 계정 비활성화' : ' 계정 활성화')}
-            onClick={() => changeAccess(account)}>{account.isActive ? '비활성화' : '활성화'}</button>}</td>
+          <td className="ttech-account-status">
+            <strong>{account.isActive ? '활성' : '비활성'}</strong>
+            {!ownAccount && !higherRank && <button type="button" className="ttech-link" disabled={pending}
+              aria-label={account.name + (account.isActive ? ' 계정 비활성화' : ' 계정 활성화')}
+              onClick={() => changeAccess(account)}>{account.isActive ? '비활성화' : '활성화'}</button>}
+          </td>
         </tr>})}</tbody>
       </table></div>}
     </section>

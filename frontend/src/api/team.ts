@@ -6,7 +6,7 @@ export type TeamKind = 'SALES' | 'DEV' | 'TECH' | 'SUPPORT'
 // 관리자는 별도 계정이 아니라 팀 구성원에게 주는 권한(isAdmin)입니다. 직급(title)은 가입할 때 본인이 고르는 표시용입니다.
 export type TeamUser = {
   id: number; name: string; email: string; role: Role; isAdmin: boolean; title: Title
-  teamId: number | null; membershipTeamId: number | null; managedTeamId: number | null; teamName: string; teamKind: TeamKind
+  teamId: number | null; membershipTeamId: number | null; membershipTeamName?: string | null; managedTeamId: number | null; teamName: string; teamKind: TeamKind
 }
 export type TeamMember = Pick<TeamUser, 'id' | 'name' | 'role'> & { email?: string; title?: Title; isAdmin?: boolean }
 // setupRequired는 처음 설치(사용자 없음)이고, 이때 첫 사용자가 고를 팀 목록(teams)을 함께 받습니다.

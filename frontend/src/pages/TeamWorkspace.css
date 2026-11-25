@@ -96,10 +96,15 @@ body:has(.ttech-shell) { background: var(--sw-canvas); }
 .ttech-inline-form button { min-height: 34px; border-radius: 7px; padding: 6px 12px; background: var(--sw-primary); color: #fff; font-weight: 600; }
 .ttech-inline-form button.ttech-secondary { border: 1px solid #cbd5e1; background: #fff; color: #0f172a; }
 .ttech-table .ttech-inline-form { margin-top: 0; }
-/* 조직 관리 사용자 행: 직급 · 팀(본부장은 담당 팀) · 저장을 같은 칸 너비로 맞춥니다. */
-.ttech-account-form { display: grid; grid-template-columns: 110px minmax(160px, 220px) auto; align-items: center; justify-content: start; }
-.ttech-account-form > span { padding-inline: 4px; color: #475569; }
+/* 조회 행과 편집 행의 직급·소속 위치를 맞춥니다. */
+.ttech-account-form { display: grid; grid-template-columns: 110px minmax(160px, 220px) 56px; align-items: center; gap: 8px; }
+.ttech-account-form > span { padding-inline: 9px; color: #475569; white-space: nowrap; }
 .ttech-account-form select { width: 100%; min-width: 0; }
+.ttech-account-form label { display: grid; gap: 4px; }
+.ttech-account-teams { display: grid; gap: 8px; }
+.ttech-own-account { display: block; margin-top: 2px; color: #64748b; white-space: nowrap; }
+.ttech-account-status { width: 6rem; white-space: nowrap; }
+.ttech-account-status > button { display: block; margin-top: 2px; padding: 0; font-size: 13px; }
 .ttech-link { color: var(--sw-primary); font-weight: 600; }
 .ttech-link:hover { text-decoration: underline; }
 .ttech-inline-form label.ttech-check { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; min-height: 34px; font-size: 14px; color: #0f172a; }

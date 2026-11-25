@@ -248,6 +248,11 @@ const session = (await request('auth/session', 200, { cookie: member.cookie })).
 assert.equal(session.membershipTeamId, null)
 assert.equal(session.managedTeamId, supportTeam.id)
 assert.equal(session.title, '본부장')
+const protectedPresident = await setAccount(admin, { title: '프로', teamId: salesOne.id }, member.cookie, 403)
+assert.equal(protectedPresident.data.code, 'HIGHER_RANK')
+const protectedAccess = await request('users/' + admin.data.user.id + '/access', 403, { method: 'PUT', value: { active: false }, cookie: member.cookie })
+assert.equal(protectedAccess.data.code, 'HIGHER_RANK')
+assert.equal((await request('auth/session', 200, { cookie: admin.cookie })).data.user.title, '대표')
 const directorWork = (await post('work', 201, { ...workInput, category: 'PURCHASE', company: null }, member.cookie)).data
 assert.equal(directorWork.category, 'PURCHASE')
 assert.ok((await request('work?scope=all&team=' + salesOne.id, 200, { cookie: member.cookie })).data.some(item => item.id === current.id))
@@ -336,3 +341,53 @@ assert.equal((await request('auth/session', 200, { cookie: changed.cookie })).da
 await request('users/' + account.data.user.id + '/access', 204, { method: 'PUT', value: { active: true }, cookie: admin.cookie })
 await post('auth/login', 200, { email: 'account-lifecycle@example.test', password: newPassword })
 console.log('PASS password change, session revocation, account deactivation and reactivation')
+
+const removalTarget = await inviteMember('remove-member@example.test', '내보내기 검증')
+const removalId = removalTarget.data.user.id
+const removal = { userId: removalId }
+const teamWork = (await post('work', 201, workInput, removalTarget.cookie)).data
+const privateWork = (await post('personal/work', 201, workInput, removalTarget.cookie)).data
+await request(reportsPath + '/personal', 200, { method: 'PUT', value: { ...report, submit: true }, cookie: removalTarget.cookie })
+await post('users/remove-member', 403, removal, removalTarget.cookie)
+await post('users/remove-member', 403, removal, observer.cookie)
+await post('users/remove-member', 403, { userId: otherLead.data.user.id }, lead.cookie)
+await post('users/remove-member', 403, { userId: lead.data.user.id }, lead.cookie)
+await post('users/remove-member', 204, removal, lead.cookie)
+await post('users/remove-member', 403, removal, lead.cookie)
+const removedUser = (await request('auth/session', 200, { cookie: removalTarget.cookie })).data.user
+assert.equal(removedUser.teamId, null)
+assert.equal(removedUser.teamName, '소속 없음')
+await request(`work/${teamWork.id}?team=${salesOne.id}`, 403, { cookie: removalTarget.cookie })
+await request(`work/${teamWork.id}`, 200, { cookie: lead.cookie })
+await request(`personal/work/${privateWork.id}`, 200, { cookie: removalTarget.cookie })
+assert.ok((await request(reportsPath, 200, { cookie: lead.cookie })).data.submissions.some(item => item.userId === removalId))
+assert.ok(!(await request('members', 200, { cookie: lead.cookie })).data.some(item => item.id === removalId))
+const removalHistory = (await request('users/history', 200, { cookie: admin.cookie })).data
+assert.deepEqual(removalHistory[0].changes.teamId, { before: salesOne.id, after: null })
+await request('users/' + removalId, 200, { method: 'PUT', value: { title: '프로', teamId: salesTwo.id }, cookie: admin.cookie })
+assert.equal((await request('auth/session', 200, { cookie: removalTarget.cookie })).data.user.teamId, salesTwo.id)
+console.log('PASS team member removal, record retention, personal access, audit and reassignment')
+
+const ownMembership = (teamId, cookie = member.cookie, status = 204) =>
+  request('users/my-membership', status, { method: 'PUT', value: { teamId }, cookie })
+await ownMembership(salesTwo.id, admin.cookie, 403)
+await ownMembership(salesTwo.id, lead.cookie, 403)
+await ownMembership(2147483647, member.cookie, 400)
+await request('users/my-membership', 400, { method: 'PUT', value: { teamId: salesTwo.id, managedTeamId: salesTwo.id }, cookie: member.cookie })
+await ownMembership(salesTwo.id)
+const assignedDirector = (await request('auth/session', 200, { cookie: member.cookie })).data.user
+assert.equal(assignedDirector.membershipTeamId, salesTwo.id)
+assert.equal(assignedDirector.membershipTeamName, salesTwo.name)
+assert.equal(assignedDirector.managedTeamId, supportTeam.id)
+assert.equal(assignedDirector.teamId, supportTeam.id)
+assert.equal(assignedDirector.isAdmin, true)
+const membershipHistory = (await request('users/history', 200, { cookie: admin.cookie })).data[0]
+assert.equal(membershipHistory.actor, membershipHistory.target)
+assert.deepEqual(membershipHistory.changes, { teamId: { before: null, after: salesTwo.id } })
+await ownMembership(null)
+await setAccount(member, { title: '본부장', teamId: salesOne.id, managedTeamId: null })
+const directorWithoutLead = (await request('auth/session', 200, { cookie: member.cookie })).data.user
+assert.equal(directorWithoutLead.teamId, salesOne.id)
+assert.equal(directorWithoutLead.managedTeamId, null)
+assert.equal(directorWithoutLead.role, 'MEMBER')
+console.log('PASS director membership, separate management scope, permissions and audit')

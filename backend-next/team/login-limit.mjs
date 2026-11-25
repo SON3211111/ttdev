@@ -1,4 +1,4 @@
-import { ApiError } from './validation.mjs'
+import { ApiError } from '../lib/validation.mjs'
 
 export function loginLimiter() {
   const attempts = new Map()

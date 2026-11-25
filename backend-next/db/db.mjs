@@ -25,9 +25,9 @@ async function connect() {
   }
   const pool = await new sql.ConnectionPool({ ...config, database: databaseName }).connect()
   try {
-    const teamSchema = await readFile(join(process.cwd(), 'team-schema.sql'), 'utf8')
-    const workSchema = await readFile(join(process.cwd(), 'team-work.sql'), 'utf8')
-    const reportsSchema = await readFile(join(process.cwd(), 'team-reports.sql'), 'utf8')
+    const teamSchema = await readFile(join(process.cwd(), 'db', 'team-schema.sql'), 'utf8')
+    const workSchema = await readFile(join(process.cwd(), 'db', 'team-work.sql'), 'utf8')
+    const reportsSchema = await readFile(join(process.cwd(), 'db', 'team-reports.sql'), 'utf8')
     await transaction(pool, async tx => {
       await query(tx, "DECLARE @lock int; EXEC @lock = sp_getapplock @Resource=N'appdb-schema', @LockMode='Exclusive'; IF @lock < 0 THROW 50001, 'Schema lock failed', 1;")
       const [migration] = await query(tx, "SELECT OBJECT_ID(N'dbo.team_users', N'U') AS teamUsers")
@@ -102,6 +102,16 @@ async function connect() {
             (title=N'팀장' AND role='LEAD' AND team_id IS NOT NULL AND managed_team_id IS NOT NULL AND managed_team_id=team_id));
           CREATE UNIQUE INDEX team_managed_once ON dbo.team_users(managed_team_id) WHERE managed_team_id IS NOT NULL;`)
       }
+      await tx.request().batch(`IF OBJECT_ID(N'dbo.team_users_membership', N'C') IS NOT NULL
+        ALTER TABLE dbo.team_users DROP CONSTRAINT team_users_membership;
+        IF OBJECT_ID(N'dbo.team_users_membership_optional', N'C') IS NOT NULL
+          ALTER TABLE dbo.team_users DROP CONSTRAINT team_users_membership_optional;
+        IF OBJECT_ID(N'dbo.team_users_membership_director', N'C') IS NULL
+          ALTER TABLE dbo.team_users ADD CONSTRAINT team_users_membership_director CHECK (
+            (title=N'대표' AND role='MEMBER' AND team_id IS NULL AND managed_team_id IS NULL) OR
+            (title=N'본부장' AND role='MEMBER') OR
+            (title=N'프로' AND role='MEMBER' AND managed_team_id IS NULL) OR
+            (title=N'팀장' AND role='LEAD' AND team_id IS NOT NULL AND managed_team_id IS NOT NULL AND managed_team_id=team_id));`)
       await tx.request().batch(`IF OBJECT_ID(N'dbo.team_org_history', N'U') IS NULL CREATE TABLE dbo.team_org_history (
         id int IDENTITY PRIMARY KEY, actor_id int NOT NULL REFERENCES dbo.team_users(id),
         target_id int NOT NULL REFERENCES dbo.team_users(id), changes nvarchar(2000) NOT NULL,

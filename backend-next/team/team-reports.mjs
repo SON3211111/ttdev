@@ -1,7 +1,7 @@
-import { query, transaction } from './db.mjs'
+import { query, transaction } from '../db/db.mjs'
 import { canManageTeam } from './team-auth.mjs'
 import { readWork } from './team-work.mjs'
-import { ApiError, body, date, shiftDay, text, validate } from './validation.mjs'
+import { ApiError, body, date, shiftDay, text, validate } from '../lib/validation.mjs'
 
 const fields = ['accomplishments', 'issues', 'nextPlan']
 const columns = `r.user_id AS userId,u.name,r.accomplishments,r.issues,r.next_plan AS nextPlan,

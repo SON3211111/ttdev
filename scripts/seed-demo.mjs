@@ -1,8 +1,8 @@
 // Run as stdin inside the backend container with SQLSERVER_DATABASE=ttech_demo.
-import { database, query, transaction } from './db.mjs'
-import { hashPassword } from './team-auth.mjs'
-import { categoriesByKind } from './team-work.mjs'
-import { seoulToday, shiftDay } from './validation.mjs'
+import { database, query, transaction } from './db/db.mjs'
+import { hashPassword } from './team/team-auth.mjs'
+import { categoriesByKind } from './team/team-work.mjs'
+import { seoulToday, shiftDay } from './lib/validation.mjs'
 
 if (process.env.SQLSERVER_DATABASE !== 'ttech_demo') throw new Error('Use only the ttech_demo database.')
 const db = await database()

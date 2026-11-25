@@ -3,7 +3,7 @@ import { canViewAll, roleLabels, teamGet, teamWrite, titleLabel, withTeam, type 
 import TeamReports from './TeamReports'
 import OrgAdmin from './OrgAdmin'
 import TeamMeetings from './TeamMeetings'
-import TeamInvites, { LeadTransfer } from './TeamInvites'
+import TeamInvites, { LeadTransfer, RemoveTeamMember } from './TeamInvites'
 import WorkspaceHome from './WorkspaceHome'
 import Smartwork from './Smartwork'
 import { meetingDetailRoute, smartViews, workDetailRoute, type View, type WorkDetailLocation } from '../components/smartwork-data'
@@ -34,7 +34,7 @@ function ProfileSettings({ user, onChanged }: { user: TeamUser; onChanged: (user
   const [message, setMessage] = useState('')
   return <section className="ttech-panel">
     <h2>내 정보</h2>
-    <p>{user.membershipTeamId ? user.teamName : '회사'} · {user.title}</p>
+    <p>{user.membershipTeamId ? user.membershipTeamName ?? user.teamName : user.title === '프로' ? '소속 없음' : '회사'} · {user.title}</p>
     <form className="ttech-inline-form" onSubmit={async event => {
       event.preventDefault()
       const name = new FormData(event.currentTarget).get('name')
@@ -99,6 +99,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
   const [invite, setInvite] = useState(() => new URLSearchParams(location.search).get('invite') ?? '')
   const [memberEntry, setMemberEntry] = useState(false)
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [loadedMembersTeam, setLoadedMembersTeam] = useState<number>()
   const [reportTab, setReportTab] = useState<'daily' | 'weekly' | 'personal'>('daily')
   const [teams, setTeams] = useState<Team[]>([])
   const [selectedTeam, setSelectedTeam] = useState<number>()
@@ -115,6 +116,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
     (view.startsWith('smart-') && !['smart-portal', 'smart-workspace', 'smart-settings'].includes(view))
   const chosenTeam = meetingLink ? linkedTeam : viewAll ? selectedTeam ?? (!user?.teamId && teamView ? teams[0]?.id : undefined) : undefined
   const viewTeam = chosenTeam && chosenTeam !== user?.teamId ? chosenTeam : undefined
+  const membersTeam = ['team-settings', 'smart-settings', 'personal-settings'].includes(view) ? undefined : viewTeam
   const otherTeam = viewTeam ? teams.find(team => team.id === viewTeam) : undefined
   const viewTeamName = otherTeam?.name ?? user?.teamName
   const viewTeamKind = otherTeam?.kind ?? user?.teamKind ?? 'SALES'
@@ -159,13 +161,17 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
   }, [user, invite, view])
 
   useEffect(() => {
-    if (!user || invite || (!user.teamId && !viewTeam)) return
+    if (!user || invite || (!user.teamId && !membersTeam)) return
     const controller = new AbortController()
-    teamGet<TeamMember[]>(withTeam('members', viewTeam), controller.signal).then(setMembers).catch(error => {
+    teamGet<TeamMember[]>(withTeam('members', membersTeam), controller.signal).then(items => {
+      if (controller.signal.aborted) return
+      setMembers(items)
+      setLoadedMembersTeam(membersTeam ?? user.teamId ?? undefined)
+    }).catch(error => {
       if (!controller.signal.aborted) setError(message(error))
     })
     return () => controller.abort()
-  }, [user, invite, view, viewTeam])
+  }, [user, invite, view, membersTeam])
 
   async function reloadTeams() {
     setTeams(await teamGet<Team[]>('teams'))
@@ -258,6 +264,10 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
       : !!user.teamId && <TeamInvites user={user} />}
     {!isAdmin && !!user.managedTeamId && <LeadTransfer user={user} members={members} onDone={async () => {
       setSession(await teamGet<TeamSession>('auth/session'))
+    }} />}
+    {!!user.managedTeamId && <RemoveTeamMember members={loadedMembersTeam === user.managedTeamId ? members : []} onRemoved={id => {
+      setMembers(current => current.filter(member => member.id !== id))
+      void reloadTeams().catch(error => setError(message(error)))
     }} />}
     <ProfileSettings user={user} onChanged={changed => setSession(current => current && { ...current, user: changed })} />
     <PasswordSettings onChanged={() => {
@@ -356,7 +366,7 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
       </section>}
       {user && !invite && !portal && <section className="ttech-panel ttech-workspace-home" aria-labelledby="workspace-home-title">
         <h1 id="workspace-home-title">팀 업무</h1>
-        <p>{user.name} · {user.membershipTeamId ? user.teamName : '회사'} {titleLabel(user)}</p>
+        <p>{user.name} · {user.membershipTeamId ? user.membershipTeamName ?? user.teamName : user.title === '프로' ? '소속 없음' : '회사'} {titleLabel(user)}</p>
         <button type="button" onClick={() => navigate('workspaces')}>내 워크스페이스 열기</button>
       </section>}
     </main>

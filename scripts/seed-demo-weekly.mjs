@@ -1,7 +1,7 @@
 // Run as stdin inside ttech-demo-backend.
-import { database, query, transaction } from './db.mjs'
-import { readWork } from './team-work.mjs'
-import { shiftDay } from './validation.mjs'
+import { database, query, transaction } from './db/db.mjs'
+import { readWork } from './team/team-work.mjs'
+import { shiftDay } from './lib/validation.mjs'
 
 if (process.env.SQLSERVER_DATABASE !== 'ttech_demo') throw new Error('Use only ttech_demo.')
 const db = await database()

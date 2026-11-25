@@ -1,8 +1,8 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
-import { query, transaction } from './db.mjs'
+import { query, transaction } from '../db/db.mjs'
 import { loginLimiter } from './login-limit.mjs'
-import { ApiError, body, text, validate } from './validation.mjs'
+import { ApiError, body, text, validate } from '../lib/validation.mjs'
 
 const derive = promisify(scrypt)
 const cookieName = 'ttech_session'
@@ -14,8 +14,9 @@ const checkLoginAttempts = loginLimiter()
 // 세션과 로그인 응답에 쓰는 사용자 정보입니다. 관리자는 소속 팀이 없습니다.
 const userColumns = `u.id,u.name,u.email,CASE WHEN u.managed_team_id IS NULL THEN 'MEMBER' ELSE 'LEAD' END AS role,
   u.is_admin AS isAdmin,u.title,u.team_id AS membershipTeamId,u.managed_team_id AS managedTeamId,
-  COALESCE(u.team_id,u.managed_team_id) AS teamId,COALESCE(t.name,N'회사') AS teamName,COALESCE(t.kind,'SUPPORT') AS teamKind`
-const userJoin = 'team_users u LEFT JOIN teams t ON t.id=COALESCE(u.team_id,u.managed_team_id)'
+  COALESCE(u.managed_team_id,u.team_id) AS teamId,m.name AS membershipTeamName,
+  COALESCE(t.name,CASE WHEN u.title=N'프로' THEN N'소속 없음' ELSE N'회사' END) AS teamName,COALESCE(t.kind,'SUPPORT') AS teamKind`
+const userJoin = 'team_users u LEFT JOIN teams t ON t.id=COALESCE(u.managed_team_id,u.team_id) LEFT JOIN teams m ON m.id=u.team_id'
 
 export const issueToken = () => randomBytes(32).toString('hex')
 export const tokenHash = token => createHash('sha256').update(token).digest('hex')

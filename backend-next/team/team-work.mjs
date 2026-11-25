@@ -1,8 +1,8 @@
-import { query, transaction } from './db.mjs'
-import { found } from './http.mjs'
+import { query, transaction } from '../db/db.mjs'
+import { found } from '../lib/http.mjs'
 import { workAttachments } from './team-work-files.mjs'
 import { canManageTeam } from './team-auth.mjs'
-import { ApiError, body, calendarMonth, choice, date, invalid, queryKeys, seoulToday, shiftDay, text, validate } from './validation.mjs'
+import { ApiError, body, calendarMonth, choice, date, invalid, queryKeys, seoulToday, shiftDay, text, validate } from '../lib/validation.mjs'
 
 // 팀 유형별 업무 구분입니다. MEETING은 영업형에서 '업무협의', 다른 유형에서 '회의'로 표시합니다.
 export const categoriesByKind = {

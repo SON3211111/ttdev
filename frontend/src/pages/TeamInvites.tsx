@@ -127,7 +127,7 @@ export function LeadTransfer({ user, members, onDone }: { user: TeamUser; member
     }
   }
   return <section className="sw-card sw-invites" aria-labelledby="lead-transfer-title">
-    <h2 id="lead-transfer-title">팀장 양도<small>넘기면 본인은 프로가 됩니다</small></h2>
+    <h2 id="lead-transfer-title">팀장</h2>
     {error && <p role="alert" className="sw-error">{error}</p>}
     {candidates.length === 0 ? <p className="ttech-muted">양도할 팀원이 없습니다.</p> : <div className="ttech-form">
       <label>새 팀장<select value={picked} disabled={pending} onChange={event => { setPicked(event.target.value); setConfirming(false) }}>
@@ -138,6 +138,53 @@ export function LeadTransfer({ user, members, onDone }: { user: TeamUser; member
         : <><p role="status">{target?.name}님에게 {user.teamName} 팀장을 넘기고 본인은 프로가 됩니다. 계속할까요?</p>
           <span className="sw-buttons"><button type="button" className="sw-primary" disabled={pending} onClick={() => void transfer()}>양도 확정</button>
             <button type="button" className="sw-secondary" disabled={pending} onClick={() => setConfirming(false)}>취소</button></span></>}
+    </div>}
+  </section>
+}
+
+export function RemoveTeamMember({ members, onRemoved }: { members: TeamMember[]; onRemoved: (id: number) => void }) {
+  const candidates = members.filter(member => member.title === '프로' && member.role === 'MEMBER' && !member.isAdmin)
+  const [picked, setPicked] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const target = candidates.find(member => String(member.id) === picked)
+
+  async function remove() {
+    if (!target) return
+    setPending(true)
+    setError('')
+    setNotice('')
+    try {
+      await teamWrite('users/remove-member', 'POST', { userId: target.id })
+      onRemoved(target.id)
+      setPicked('')
+      setConfirming(false)
+      setNotice(`${target.name}님을 팀에서 내보냈습니다.`)
+    } catch (error) {
+      setError(message(error))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return <section className="sw-card sw-invites" aria-labelledby="remove-member-title">
+    <h2 id="remove-member-title">팀원 내보내기</h2>
+    {error && <p role="alert" className="sw-error">{error}</p>}
+    {notice && <p role="status">{notice}</p>}
+    {candidates.length === 0 ? <p className="ttech-muted">내보낼 팀원이 없습니다.</p> : <div className="ttech-form">
+      <label>내보낼 팀원<select value={picked} disabled={pending} onChange={event => { setPicked(event.target.value); setConfirming(false); setNotice(''); setError('') }}>
+        <option value="">팀원을 고르세요</option>
+        {candidates.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+      </select></label>
+      {confirming && target ? <>
+        <p>{target.name}님의 소속을 해제할까요? 기존 업무와 보고는 팀에 남습니다.</p>
+        <span className="sw-buttons">
+          <button type="button" className="sw-danger" disabled={pending} onClick={() => void remove()}>내보내기 확정</button>
+          <button type="button" className="sw-secondary" disabled={pending} onClick={() => setConfirming(false)}>취소</button>
+        </span>
+      </> : <button type="button" className="sw-secondary" disabled={!target || pending} onClick={() => setConfirming(true)}>내보내기</button>}
     </div>}
   </section>
 }

@@ -1,5 +1,5 @@
-import { query, transaction } from './db.mjs'
-import { ApiError, body, date, shiftDay, text, validate } from './validation.mjs'
+import { query, transaction } from '../db/db.mjs'
+import { ApiError, body, date, shiftDay, text, validate } from '../lib/validation.mjs'
 import { readWork } from './team-work.mjs'
 import { canManageTeam } from './team-auth.mjs'
 

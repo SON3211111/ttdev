@@ -1,10 +1,10 @@
-import { database, query } from '../../../db.mjs'
-import { ApiError } from '../../../validation.mjs'
-import { auth, canViewAll, checkOrigin, requireUser } from '../../../team-auth.mjs'
-import { teamDashboard, teamWork } from '../../../team-work.mjs'
-import { teamReports } from '../../../team-reports.mjs'
-import { teamMeetings } from '../../../team-meetings.mjs'
-import { teams, users as orgUsers } from '../../../team-org.mjs'
+import { database, query } from '../../../db/db.mjs'
+import { ApiError } from '../../../lib/validation.mjs'
+import { auth, canViewAll, checkOrigin, requireUser } from '../../../team/team-auth.mjs'
+import { teamDashboard, teamWork } from '../../../team/team-work.mjs'
+import { teamReports } from '../../../team/team-reports.mjs'
+import { teamMeetings } from '../../../team/team-meetings.mjs'
+import { teams, users as orgUsers } from '../../../team/team-org.mjs'
 
 export const runtime = 'nodejs'
 
