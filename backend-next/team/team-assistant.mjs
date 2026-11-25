@@ -2,7 +2,7 @@ import { query } from '../db/db.mjs'
 import { ApiError, body, seoulToday, text, validate } from '../lib/validation.mjs'
 import { canViewAll, requireUser } from './team-auth.mjs'
 import { mergeAssistantSources, vectorHits } from './assistant-vector.mjs'
-import { dateFields, defaultScope, extractConditions, periodLabel, statuses, urgentWords, validateWorkContext, workPeriod, workQuestion } from './assistant-work-query.mjs'
+import { assigneeWorkQuestion, dateFields, defaultScope, extractConditions, periodLabel, statuses, urgentWords, validateWorkContext, workPeriod, workQuestion } from './assistant-work-query.mjs'
 import { approvalQuestion, helpQuestion, helpText, meetingQuestion, orgQuestion, readApprovals, readMeetings, readOrg } from './assistant-insights.mjs'
 import { unassignedActiveCount, visibleTeamCounts, visibleTeamGroup } from './team-org.mjs'
 import { decisionHistoryQuestion, readDecisionHistory } from './assistant-decision-history.mjs'
@@ -210,20 +210,26 @@ async function otherTeamOnly(db, user, teamName) {
 
 const topic = word => { const code = word.charCodeAt(word.length - 1) - 0xAC00; return code >= 0 && code <= 11171 && code % 28 ? '은' : '는' }
 
-async function assignedWork(db, user, filters, { urgent = false } = {}) {
+async function assignedWork(db, user, filters, { urgent = false, assignees = false } = {}) {
   const { name, keyword, status } = filters
   const today = seoulToday()
   const { sql, params, range, criteria: rawCriteria, period } = workFilter(user, filters, today)
   const teamName = await teamLabel(db, user, filters.team)
   const criteria = rawCriteria.map(item => item === filters.team ? teamName : item)
-  const sources = await query(db, `SELECT v.route,v.title,v.context,v.[date],v.excerpt
+  const rows = await query(db, `SELECT v.route,v.title,v.context,v.[date],v.excerpt${assignees ? ',v.assigneeName' : ''}
     FROM ${assistantSourceRows} v WHERE ${sql} ORDER BY v.[date],v.workId`, params)
+  const sources = assignees ? rows.map(({ assigneeName, ...source }) => source) : rows
   if (!sources.length) {
     const denied = await otherTeamOnly(db, user, filters.team)
     return { kind: 'assignment', sources, criteria, context: filters, unavailable: false,
       answer: denied ? `${teamName}${topic(teamName)} 열람 권한이 없는 팀입니다. 소속 팀과 본인 개인 업무만 볼 수 있습니다.` : '선택한 조건에 맞는 업무를 열람 범위에서 찾지 못했습니다.' }
   }
   const head = `${name ? name + '님의 ' : ''}${teamName ? teamName + ' ' : ''}${keyword ? `‘${keyword}’ 관련 ` : ''}${range ? periodLabel(period) + ' ' : ''}${status === 'overdue' && !range ? '현재 기한 초과' : statuses[status]} 업무 ${sources.length}건을 찾았습니다.`
+  if (assignees) {
+    const groups = Object.groupBy(rows, row => row.assigneeName || '담당자 미지정')
+    const lines = Object.entries(groups).map(([owner, items]) => `· ${owner} (${items.length}건): ${items.slice(0, 3).map(item => item.title).join(', ')}`)
+    return { kind: 'assignment', sources, criteria, context: filters, unavailable: false, answer: [head, ...lines].join('\n') }
+  }
   // 마감일 순으로 정렬돼 있으므로 맨 앞이 가장 급한 업무다.
   const lines = urgent
     ? [`가장 급한 업무는 ${sources[0].title}(${sources[0].context}, 마감 ${sources[0].date}, ${dueText(sources[0].date, today)})입니다.`,
@@ -393,6 +399,14 @@ export async function assistant(db, request, user) {
     if (!filters) return structured({ sources: [], answer: note, unavailable: false }, 'structured', 'permission')
     const work = await timing.measure('sql', () => assignedWork(db, user, filters))
     return structured({ ...work, answer: note + '\n\n' + work.answer })
+  }
+  const assignee = assigneeWorkQuestion(question, context, user.name, today)
+  if (assignee && !aggregateAsk.test(question) && !meetingQuestion(question) && !approvalQuestion(question)) {
+    const normalized = assignee.filters?.team ? await timing.measure('scope', () => normalizeMentionedTeam(db, question)) : question
+    const filters = normalized === question ? assignee.filters : assigneeWorkQuestion(normalized, context, user.name, today)?.filters
+    if (!filters) return structured({ kind: 'assignment', sources: [], unavailable: false,
+      answer: '어느 팀이나 업체의 업무 담당자를 찾으시나요? 업무 제목으로도 확인할 수 있습니다.' }, 'context', 'clarify')
+    return structured(await timing.measure('sql', () => assignedWork(db, user, filters, { assignees: true })))
   }
   const org = orgQuestion(question)
   if (org) return structured(await timing.measure('sql', () => readOrg(db, user, org)))

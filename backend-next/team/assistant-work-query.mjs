@@ -18,6 +18,19 @@ const listWords = /업무|일정|실적|성과|담당|맡|건|마감|시작|완�
 const reasonWords = /왜|이유|배경|회의록|결정|원인|추천|방법|언제|정했|바뀌|변경|경위|미뤘/u
 export const urgentWords = /급한|급해|우선순위|먼저\s*해야|가장\s*빠른|제일\s*빠른|임박/u
 
+const assigneeRole = /담당|맡/u
+const assigneeRequest = /누구(?:\s*(?:야|예요|인가요|인지|입니까|니|냐|죠))?|누가|(?:담당자|사람|분|이름)(?:을|를|이|가)?\s*(?:알려|보여|확인)/u
+const assigneePhrases = /(?:^|\s)(?:(?:담당|맡)(?:\s*(?:하고\s*있는|고\s*있는|하는|한|은))?(?:\s*(?:거|것|사람|분)|자)?(?:을|를|이|가|은|는)?|누구(?:\s*(?:야|예요|인가요|인지|입니까|니|냐|죠))?|누가|(?:사람|분|이름)(?:을|를|이|가)?|(?:알려|보여)\s*\S*|확인\s*\S*)(?=\s|[?!.？！。]|$)/gu
+
+export function assigneeWorkQuestion(question, previous, viewerName, today) {
+  if (reasonWords.test(question) || !assigneeRole.test(question) || !assigneeRequest.test(question)) return null
+  const terms = question.replace(assigneePhrases, ' ')
+  const filters = workQuestion(`${terms} 업무`, null, viewerName, today)
+  if (filters?.name || filters?.team || filters?.keyword) return { filters }
+  if (previous && /^(?:그\s*중|그\s*업무\s*들)/u.test(question)) return { filters: previous }
+  return { filters: null }
+}
+
 const teamPattern = /(?:^|\s)(?<team>[\p{L}·]{1,30}(?:\s?\d{1,2})?팀(?:\s?\([^)]{1,20}\))?)(?![장원별])(?:의|에서는|에서|에는|에|은|는|이|가)?(?=\s|$)/u
 const ownTeam = /^(?:우리|내|저희)\s*팀$/u
 const titledPerson = /(?:^|\s)(?<name>[가-힣]{2,4})\s*(?:프로|팀장|본부장|대표|님|씨)(?:님)?(?:가|이|은|는|의|한테)?(?=\s|$)/u

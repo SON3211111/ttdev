@@ -532,6 +532,21 @@ console.log('PASS spaced team name on weekly schedule and team-scoped evidence')
 
 const companyQuestion = '솔루션개발2팀에서 맡고있는 현대자동차 업무 뭐있는지 보여줘'
 const companyFixture = { ...workInput, category: 'DEVELOP', startDate: today, dueDate: today }
+const lgAssignment = (await post('work', 201, { ...companyFixture, company: 'LG화학',
+  title: '화학 업무 담당자 조회 검증' }, assignmentOwner.cookie)).data
+await post('work', 201, { ...companyFixture, company: 'LG화학', title: '이미 완료한 화학 업무', status: 'DONE' }, assignmentOwner.cookie)
+for (const team of ['솔루션개발2팀 에서', '솔루션개발 2팀', '솔루션 개발 2팀']) {
+  for (const wording of ['lg화학 담당하고있는거 누구야', 'LG화학 건 맡은 사람 알려줘', 'LG화학 업무 담당자가 누구야?']) {
+    const question = team + ' ' + wording
+    for (const cookie of [admin.cookie, assignmentOwner.cookie]) {
+      const result = (await ask(question, cookie)).data
+      assert.match(result.answer, /박검증/u, question)
+      assert.deepEqual(result.sources.map(source => source.route), ['work/' + lgAssignment.id + '?team=' + solutionTwo.id], question)
+    }
+    assert.equal((await ask(question, lead.cookie)).data.sources.length, 0, question)
+  }
+}
+console.log('PASS 담당자 질문 9가지 표현에서 업체·미완료 조건 및 계정별 열람 범위를 적용한다')
 await post('work', 201, { ...companyFixture, company: '현대자동차', title: '완료된 자동차 업무', status: 'DONE' }, assignmentOwner.cookie)
 await post('work', 201, { ...companyFixture, company: '현대오토에버', title: '유사 업체 업무',
   notes: '현대자동차를 참고 사례로 검토함' }, assignmentOwner.cookie)

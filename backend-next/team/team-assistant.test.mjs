@@ -4,6 +4,32 @@ import { assistant, completeSentences } from './team-assistant.mjs'
 import { teamBriefing } from './team-work.mjs'
 import { workQuestion, workPeriod } from './assistant-work-query.mjs'
 
+test('담당자를 묻는 표현은 업무 검색어가 아닌 답변 유형으로 처리한다', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('SQL로 답해야 한다') })
+  const seen = []
+  const db = { request() {
+    const params = {}
+    return { input(name, _type, value) { params[name] = value }, async query(sql) {
+      seen.push(params)
+      if (sql.startsWith('SELECT name FROM teams')) return { recordset: [{ name: '솔루션개발 2팀' }] }
+      if (sql.includes('FROM team_users WHERE')) return { recordset: [] }
+      return { recordset: [{ route: 'work/7?team=5', title: '시험 업무', context: '솔루션개발 2팀',
+        date: '2026-11-25', excerpt: '', assigneeName: '박검증' }] }
+    } }
+  } }
+  for (const question of ['솔루션개발2팀 에서 lg화학 담당하고있는거 누구야', '솔루션개발 2팀 LG화학 건 맡은 사람 알려줘',
+    '솔루션 개발 2팀 LG화학 업무 담당자가 누구야?']) {
+    seen.length = 0
+    const request = new Request('http://localhost/api/team/assistant', { method: 'POST', body: JSON.stringify({ question }) })
+    const response = await assistant(db, request, { id: 3, teamId: 5, isAdmin: true })
+    const data = await response.json()
+    assert.equal(response.headers.get('x-assistant-mode'), 'structured', question)
+    assert.match(data.answer, /박검증/, question)
+    assert.ok(seen.some(params => /^lg화학$/iu.test(params.companyKey) && params.teamKey === '솔루션개발2팀'), question)
+  }
+  assert.equal(fetch.mock.calls.length, 0)
+})
+
 test('팀의 업체별 미완료 업무 질문은 정확한 키워드를 유지하고 0건도 DB 결과로 답한다', async t => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('유사 업체 검색을 하면 안 된다') })
   const statements = []
