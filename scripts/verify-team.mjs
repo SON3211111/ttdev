@@ -489,6 +489,32 @@ assert.equal(expectedCount, 1)
 assert.equal((await ask(countQuestion, admin.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
 assert.equal((await ask(countQuestion, assignmentOwner.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
 assert.equal((await ask(countQuestion, lead.cookie)).data.answer, '열람할 수 있는 팀 범위에서 해당 팀을 찾지 못했습니다.')
+for (const question of ['솔루션개발 2팀 인원은 몇명이야 ?', '솔루션개발 2팀은 몇 명이야?', '솔루션개발 2팀에 몇 명 있어?', '솔루션개발 2팀 구성원 수 알려줘',
+  '솔루션개발 2팀 사람 몇명이야?', '솔루션개발 2팀 인원이 어떻게 돼?', '솔루션개발 2팀 인원수는?', '솔루션개발 2팀 총 인원', '솔루션개발 2팀 몇명임']) {
+  assert.equal((await ask(question, assignmentOwner.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
+  assert.equal((await ask(question, lead.cookie)).data.answer, '열람할 수 있는 팀 범위에서 해당 팀을 찾지 못했습니다.')
+}
+const adminTeams = (await request('teams', 200, { cookie: admin.cookie })).data
+const adminTotal = adminTeams.reduce((sum, team) => sum + team.memberCount, 0)
+const ownerTeams = (await request('teams', 200, { cookie: assignmentOwner.cookie })).data
+assert.equal(ownerTeams.length, 1)
+for (const question of ['부서의 총인원은 몇명이야?', '전체 부서 인원 몇명?', '총사원수 몇명이야?', '전체 직원 몇명?']) {
+  const adminAnswer = (await ask(question, admin.cookie)).data.answer
+  const [, total, unassigned = '0'] = adminAnswer.match(new RegExp(`^현재 활성 사원은 총 (\\d+)명입니다\\. 부서 소속 ${adminTotal}명(?:, 부서 미소속 (\\d+)명)?입니다\\.`)) ?? []
+  assert.equal(+total, adminTotal + +unassigned, adminAnswer)
+  assert.ok(adminAnswer.includes('\n· 솔루션개발 2팀 1명'), adminAnswer)
+  assert.equal((await ask(question, assignmentOwner.cookie)).data.answer, '열람할 수 있는 1개 부서의 현재 활성 구성원은 총 1명입니다.\n· 솔루션개발 2팀 1명')
+}
+assert.equal((await ask('우리 부서 인원 몇명이야?', assignmentOwner.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
+const solutionTeams = adminTeams.filter(team => team.name.startsWith('솔루션개발'))
+assert.equal(solutionTeams.length, 2)
+assert.equal((await ask('솔루션개발팀 전체 몇명이야?', admin.cookie)).data.answer,
+  [`솔루션개발팀 전체(2개 부서)의 현재 활성 구성원은 총 ${solutionTeams.reduce((sum, team) => sum + team.memberCount, 0)}명입니다.`,
+    ...solutionTeams.map(team => `· ${team.name} ${team.memberCount}명`)].join('\n'))
+assert.equal((await ask('솔루션 개발팀은 몇 명', assignmentOwner.cookie)).data.answer,
+  '솔루션개발팀 전체(열람할 수 있는 1개 부서)의 현재 활성 구성원은 총 1명입니다.\n· 솔루션개발 2팀 1명')
+const labCount = adminTeams.find(team => team.name === '기업부설연구소').memberCount
+assert.equal((await ask('기업부설연구소 인원 몇명?', admin.cookie)).data.answer, `기업부설연구소의 현재 활성 구성원은 ${labCount}명입니다.`)
 const originalPhrasing = (await ask('박검증 프로가 맡은 업무가 뭐있어?', admin.cookie)).data
 assert.equal(originalPhrasing.kind, 'assignment')
 assert.equal(originalPhrasing.context.name, '박검증')
@@ -510,3 +536,28 @@ assert.match(deniedReference.data.answer, /어느 업무/)
 const explained = await followReference('그거 왜 변경됐어?', [sourceRoute])
 assert.equal(explained.data.sources[0].route, sourceRoute)
 console.log('PASS reference follow-up, current deadline, ambiguity and scope checks')
+
+const historyWork = (await post('work', 201, { ...workInput, title: '한빛 장비 납품', company: '한빛연구소',
+  startDate: '2026-11-29', dueDate: '2026-12-09' }, lead.cookie)).data
+const relatedHistory = { agenda: '', followups: '', workIds: [historyWork.id] }
+await request('meetings/daily/2026-12-01', 200, { method: 'PUT', cookie: lead.cookie,
+  value: { ...relatedHistory, decisions: '납품일을 12월 7일로 제안했습니다.', action: 'draft' } })
+await request('meetings/daily/2026-12-02', 200, { method: 'PUT', cookie: lead.cookie,
+  value: { ...relatedHistory, decisions: '납품일을 12월 9일로 확정했습니다. 변경 이유는 기록되어 있지 않습니다.', action: 'submit' } })
+await request('meetings/daily/2026-12-02/approval', 200, { method: 'PUT', cookie: lead.cookie, value: {} })
+await request('meetings/daily/2026-12-03', 200, { method: 'PUT', cookie: lead.cookie,
+  value: { ...relatedHistory, decisions: '납품일을 12월 12일로 제안했습니다.', action: 'submit' } })
+const historyQuestion = '한빛 장비 납품 일정이 어떻게 바뀌었고 이유는 무엇인가요?'
+const firstHistory = (await ask(historyQuestion, lead.cookie)).data
+assert.equal(firstHistory.kind, 'history')
+assert.deepEqual(firstHistory.evidence.map(item => item.title), ['최종 결정', '이전 제안', '변경 이유'])
+assert.equal(firstHistory.evidence[0].quotes[0].text, '납품일을 12월 9일로 확정했습니다.')
+assert.equal(firstHistory.evidence[0].quotes[0].route, 'team-reports?kind=daily&date=2026-12-02&team=' + salesOne.id)
+assert.equal(firstHistory.evidence[1].quotes[0].text, '납품일을 12월 7일로 제안했습니다.')
+assert.equal(firstHistory.evidence[1].quotes[0].route, 'team-reports?kind=daily&date=2026-12-01&team=' + salesOne.id)
+assert.match(firstHistory.evidence[2].message, /확인되지/)
+assert.equal(firstHistory.evidence[2].quotes[0].route, firstHistory.evidence[0].quotes[0].route)
+assert.deepEqual((await ask(historyQuestion, lead.cookie)).data, firstHistory)
+assert.deepEqual((await ask('TSK-' + historyWork.id + ' 변경 경위', lead.cookie)).data, firstHistory)
+assert.deepEqual((await ask(historyQuestion, observer.cookie)).data.sources, [])
+console.log('PASS linked decision history: repeated approval, proposal, missing reason and permission checks')

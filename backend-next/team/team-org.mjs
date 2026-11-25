@@ -18,11 +18,24 @@ async function teamList(db, where = '1=1', params = {}) {
   return query(db, `SELECT ${teamColumns} FROM teams t WHERE ${where} ORDER BY t.sort_order,t.id`, { ...params, today: seoulToday() })
 }
 
+// teamName이 없으면 조회 가능한 모든 부서를 돌려줍니다.
 export function visibleTeamCounts(db, user, teamName) {
   const ownTeam = teamName === '우리팀' || teamName === '내팀'
-  const match = ownTeam ? 't.id=@team' : "REPLACE(t.name,N' ',N'')=@teamName"
+  const match = teamName == null ? '1=1' : ownTeam ? 't.id=@team' : "REPLACE(t.name,N' ',N'')=@teamName"
   return teamList(db, `(@allTeams=1 OR t.id=@team) AND ${match}`,
     { team: user.teamId, teamName, allTeams: canViewAll(user) ? 1 : 0 })
+}
+
+// '솔루션개발'처럼 이름 앞부분이 같은 부서 묶음(솔루션개발 1팀·2팀)을 공백 무시로 찾습니다.
+export function visibleTeamGroup(db, user, stem) {
+  return teamList(db, "(@allTeams=1 OR t.id=@team) AND LEFT(REPLACE(t.name,N' ',N''),LEN(@stem))=@stem",
+    { team: user.teamId, stem, allTeams: canViewAll(user) ? 1 : 0 })
+}
+
+// 부서에 소속되지 않은 활성 사용자 수(대표·본부장 등). 전체 조회 권한이 있을 때만 씁니다.
+export async function unassignedActiveCount(db) {
+  const [{ count }] = await query(db, 'SELECT COUNT(*) AS count FROM team_users WHERE team_id IS NULL AND is_active=1')
+  return count
 }
 
 function teamValues(input) {

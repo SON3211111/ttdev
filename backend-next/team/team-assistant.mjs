@@ -3,10 +3,34 @@ import { ApiError, body, seoulToday, text, validate } from '../lib/validation.mj
 import { canViewAll, requireUser } from './team-auth.mjs'
 import { mergeAssistantSources, vectorHits } from './assistant-vector.mjs'
 import { dateFields, periodLabel, statuses, validateWorkContext, workPeriod, workQuestion } from './assistant-work-query.mjs'
-import { visibleTeamCounts } from './team-org.mjs'
+import { unassignedActiveCount, visibleTeamCounts, visibleTeamGroup } from './team-org.mjs'
+import { decisionHistoryQuestion, readDecisionHistory } from './assistant-decision-history.mjs'
 
 const commonWords = new Set(['일정', '업무', '회의', '언제', '언제였지', '어떻게', '알려줘', '찾아줘', '있어', '뭐야', '정리해줘', '진행', '지금', '내용'])
-const teamCountQuestion = /^(?:(?:현재|지금)\s*)?([\p{L}\p{N}· ]{1,55}?팀(?:\s*\([^)]{1,20}\))?)(?:의|은|는)?\s*(?:팀원\s*수?|구성원\s*수?|인원\s*수?|몇\s*명)(?:가|은|는|이)?\s*(?:몇\s*명(?:이야|인가요|이지|이에요|이죠|이니)?|이야|인가요|이에요|알려\s*(?:줘|주세요))?[?!.]*$/u
+const headcountWord = /인원|팀\s*원|구성\s*원|임?\s*직원|사원|사람|몇\s*명|총\s*원|머릿\s*수/u
+const notHeadcount = /업무|회의|일정|프로젝트|담당|맡|진행|완료|참석|누구|이름|명단|TSK-\d/iu
+const ownDepartment = /^(?:우리|내|저희)(?:\s*(?:부서|팀))?$/u
+const allDepartments = /^(?:우리\s*)?(?:(?:회사|전사|전체|모든|각)\s*)*(?:부서|팀|조직)?(?:\s*별)?$/u
+const companyWide = /총|전체|회사|전사|직원|사원/u
+const subjectTail = /\s*(?:의|에는|에|은|는|총|전체|모두|합계|합쳐서)\s*$/u
+const departmentName = /(?:팀(?:\s*\([^)]{1,20}\))?|연구소|본부|센터|지사|실)$/u
+
+// 인원 단어 앞부분을 대상 부서로 읽는다. 어미는 보지 않고, 업무·회의·명단 질문은 제외한다.
+// 반환: { all: true }(조회 가능한 전체) | { name } | null(인원수 질문 아님)
+function headcountTarget(question) {
+  const trimmed = question.replace(/\s*[?!.？！。]+$/u, '').trim()
+  const word = trimmed.match(headcountWord)
+  if (!word || trimmed.length > 60 || notHeadcount.test(trimmed)) return null
+  const before = trimmed.slice(0, word.index)
+  let subject = before.replace(/^(?:현재|지금)\s*/u, '').trim()
+  while (subjectTail.test(subject)) subject = subject.replace(subjectTail, '').trim()
+  if (/^팀/u.test(word[0]) && subject && !/\s$/u.test(before)) subject += '팀'
+  if (!subject) return companyWide.test(trimmed) ? { all: true } : null
+  if (ownDepartment.test(subject)) return { name: '우리팀' }
+  if (allDepartments.test(subject)) return { all: true }
+  subject = subject.replace(/(\S)\s*부서$/u, '$1')
+  return departmentName.test(subject) ? { name: subject.replace(/\s/gu, '') } : null
+}
 
 export const assistantSourceRows = `(
       SELECT CASE WHEN w.personal_owner_id IS NULL THEN CONCAT('work/',w.id,'?team=',w.team_id)
@@ -136,9 +160,34 @@ export async function assistant(db, request, user) {
   const input = await body(request, ['question', 'context', 'references'])
   const question = text(input.question, 'question', 500, true)
   const context = validateWorkContext(input.context)
-  const countTeam = question.match(teamCountQuestion)?.[1]
-  if (countTeam) {
-    const teams = await timing.measure('sql', () => visibleTeamCounts(db, user, countTeam.replace(/\s/gu, '')))
+  const countTarget = headcountTarget(question)
+  if (countTarget?.all) {
+    const [teams, unassigned] = await timing.measure('sql', () => Promise.all([
+      visibleTeamCounts(db, user, null), canViewAll(user) ? unassignedActiveCount(db) : null]))
+    const members = teams.reduce((sum, team) => sum + team.memberCount, 0)
+    const lines = teams.map(team => `· ${team.name} ${team.memberCount}명`)
+    // 전체 조회 권한이 있으면 부서 미소속(대표·본부장 등)까지 더한 회사 전체 사원 수를 답한다.
+    const answer = unassigned != null
+      ? [`현재 활성 사원은 총 ${members + unassigned}명입니다. 부서 소속 ${members}명${unassigned ? `, 부서 미소속 ${unassigned}명` : ''}입니다.`,
+        ...lines, ...(unassigned ? [`· 부서 미소속 ${unassigned}명`] : [])].join('\n')
+      : teams.length ? [`열람할 수 있는 ${teams.length}개 부서의 현재 활성 구성원은 총 ${members}명입니다.`, ...lines].join('\n')
+        : '열람할 수 있는 부서가 없습니다.'
+    return timing.finish(Response.json({ sources: [], answer, unavailable: false, criteria: ['활성 계정 기준'] }), 'structured')
+  }
+  if (countTarget) {
+    const teams = await timing.measure('sql', () => visibleTeamCounts(db, user, countTarget.name))
+    // '솔루션개발팀'처럼 정확히 같은 부서가 없으면 이름 앞부분이 같은 부서 묶음(솔루션개발 1팀·2팀)을 합산한다.
+    const stem = countTarget.name.replace(/팀$/u, '')
+    if (!teams.length && stem !== countTarget.name && stem.length >= 2 && stem !== '우리') {
+      const group = await timing.measure('sql', () => visibleTeamGroup(db, user, stem))
+      if (group.length) {
+        const total = group.reduce((sum, team) => sum + team.memberCount, 0)
+        const scope = canViewAll(user) ? '' : '열람할 수 있는 '
+        const answer = [`${stem}팀 전체(${scope}${group.length}개 부서)의 현재 활성 구성원은 총 ${total}명입니다.`,
+          ...group.map(team => `· ${team.name} ${team.memberCount}명`)].join('\n')
+        return timing.finish(Response.json({ sources: [], answer, unavailable: false, criteria: ['활성 소속 구성원 기준'] }), 'structured')
+      }
+    }
     const team = teams.length === 1 ? teams[0] : null
     const answer = team ? `${team.name}의 현재 활성 구성원은 ${team.memberCount}명입니다.`
       : teams.length > 1 ? '어느 팀을 뜻하는지 팀 이름을 한 번 더 알려주세요.'
@@ -165,12 +214,16 @@ export async function assistant(db, request, user) {
         answer: `${reference.title}의 마감일은 ${reference.date}입니다.` }), 'reference')
     }
   }
+  const requestedId = Number(question.match(/\bTSK-([0-9]{1,10})\b/i)?.[1])
+  const workId = requestedId > 0 && requestedId <= 2147483647 ? requestedId : null
+  if (decisionHistoryQuestion(question) && (workId || !reference?.route.startsWith('team-reports'))) {
+    const result = await timing.measure('sql', () => readDecisionHistory(db, user, question, workId, reference))
+    return timing.finish(Response.json(result), 'history', result.evidence ? 'answered' : 'clarify')
+  }
   const searchQuestion = reference ? `${reference.title} ${question.slice(prefix.length).trim()}` : question
   const terms = [...new Set((searchQuestion.match(/[\p{L}\p{N}-]{2,}/gu) ?? [])
     .map(word => word.replace(/(?:에서는|에서|에게|으로|까지|부터|은|는|을|를|이|가)$/u, match => word.length - match.length >= 2 ? '' : match))
     .filter(word => !commonWords.has(word)))].slice(0, 12)
-  const requestedId = Number(question.match(/\bTSK-([0-9]{1,10})\b/i)?.[1])
-  const workId = requestedId > 0 && requestedId <= 2147483647 ? requestedId : null
   const hits = timing.measure('vector', () => vectorHits(searchQuestion, user, request.signal))
   const prependReference = (source, sources) => source ? [source, ...sources.filter(item => item.route !== source.route)].slice(0, 5) : sources
   const sources = prependReference(reference, await timing.measure('retrieval', () => findSources(db, user, terms, workId, hits, timing)))
