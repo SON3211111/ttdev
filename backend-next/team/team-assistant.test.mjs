@@ -27,6 +27,13 @@ test('담당자를 묻는 표현은 업무 검색어가 아닌 답변 유형으�
     assert.match(data.answer, /박검증/, question)
     assert.ok(seen.some(params => /^lg화학$/iu.test(params.companyKey) && params.teamKey === '솔루션개발2팀'), question)
   }
+  const response = await assistant(db, new Request('http://localhost/api/team/assistant', {
+    method: 'POST', body: JSON.stringify({ question: 'lg화학업무 어느팀에서 누가 지금 담당하고있어?' }),
+  }), { id: 3, teamId: 5, isAdmin: true })
+  const result = await response.json()
+  assert.equal(result.kind, 'assignment')
+  assert.match(result.answer, /솔루션개발 2팀.*박검증/u)
+  assert.equal(result.context.keyword, 'lg화학')
   assert.equal(fetch.mock.calls.length, 0)
 })
 

@@ -2,7 +2,7 @@ import { query } from '../db/db.mjs'
 import { ApiError, body, seoulToday, text, validate } from '../lib/validation.mjs'
 import { canViewAll, requireUser } from './team-auth.mjs'
 import { mergeAssistantSources, vectorHits } from './assistant-vector.mjs'
-import { assigneeWorkQuestion, dateFields, defaultScope, extractConditions, periodLabel, statuses, urgentWords, validateWorkContext, workPeriod, workQuestion } from './assistant-work-query.mjs'
+import { asksWhichTeam, assigneeWorkQuestion, dateFields, defaultScope, extractConditions, periodLabel, statuses, urgentWords, validateWorkContext, workPeriod, workQuestion } from './assistant-work-query.mjs'
 import { approvalQuestion, helpQuestion, helpText, meetingQuestion, orgQuestion, readApprovals, readMeetings, readOrg } from './assistant-insights.mjs'
 import { unassignedActiveCount, visibleTeamCounts, visibleTeamGroup } from './team-org.mjs'
 import { decisionHistoryQuestion, readDecisionHistory } from './assistant-decision-history.mjs'
@@ -226,7 +226,7 @@ async function assignedWork(db, user, filters, { urgent = false, assignees = fal
   }
   const head = `${name ? name + '님의 ' : ''}${teamName ? teamName + ' ' : ''}${keyword ? `‘${keyword}’ 관련 ` : ''}${range ? periodLabel(period) + ' ' : ''}${status === 'overdue' && !range ? '현재 기한 초과' : statuses[status]} 업무 ${sources.length}건을 찾았습니다.`
   if (assignees) {
-    const groups = Object.groupBy(rows, row => row.assigneeName || '담당자 미지정')
+    const groups = Object.groupBy(rows, row => `${row.context} · ${row.assigneeName || '담당자 미지정'}`)
     const lines = Object.entries(groups).map(([owner, items]) => `· ${owner} (${items.length}건): ${items.slice(0, 3).map(item => item.title).join(', ')}`)
     return { kind: 'assignment', sources, criteria, context: filters, unavailable: false, answer: [head, ...lines].join('\n') }
   }
@@ -401,7 +401,7 @@ export async function assistant(db, request, user) {
     return structured({ ...work, answer: note + '\n\n' + work.answer })
   }
   const assignee = assigneeWorkQuestion(question, context, user.name, today)
-  if (assignee && !aggregateAsk.test(question) && !meetingQuestion(question) && !approvalQuestion(question)) {
+  if (assignee && !aggregateAsk.test(question.replace(asksWhichTeam, ' ')) && !meetingQuestion(question) && !approvalQuestion(question)) {
     const normalized = assignee.filters?.team ? await timing.measure('scope', () => normalizeMentionedTeam(db, question)) : question
     const filters = normalized === question ? assignee.filters : assigneeWorkQuestion(normalized, context, user.name, today)?.filters
     if (!filters) return structured({ kind: 'assignment', sources: [], unavailable: false,
