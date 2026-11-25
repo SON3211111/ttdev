@@ -34,6 +34,12 @@ test('담당자를 묻는 표현은 업무 검색어가 아닌 답변 유형으�
   assert.equal(result.kind, 'assignment')
   assert.match(result.answer, /솔루션개발 2팀.*박검증/u)
   assert.equal(result.context.keyword, 'lg화학')
+  const autoEver = await assistant(db, new Request('http://localhost/api/team/assistant', {
+    method: 'POST', body: JSON.stringify({ question: '현대오토에버 맡고있는 담당자가 누구지?' }),
+  }), { id: 3, teamId: 5, isAdmin: true })
+  const autoEverResult = await autoEver.json()
+  assert.equal(autoEverResult.context.keyword, '현대오토에버')
+  assert.match(autoEverResult.answer, /박검증/u)
   assert.equal(fetch.mock.calls.length, 0)
 })
 

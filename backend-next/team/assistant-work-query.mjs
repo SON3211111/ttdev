@@ -20,11 +20,13 @@ export const urgentWords = /급한|급해|우선순위|먼저\s*해야|가장\s*
 
 const assigneeRole = /담당|맡/u
 export const asksWhichTeam = /어느\s*(?:팀|부서)(?:에서|이|가)?/u
-const assigneeRequest = /누구(?:\s*(?:야|예요|인가요|인지|입니까|니|냐|죠))?|누가|(?:담당자|사람|분|이름)(?:을|를|이|가)?\s*(?:알려|보여|확인)/u
-const assigneePhrases = /(?:^|\s)(?:(?:담당|맡)(?:\s*(?:하고\s*있는|고\s*있는|하는|한|은))?(?:\s*(?:거|것|사람|분)|자)?(?:을|를|이|가|은|는)?|누구(?:\s*(?:야|예요|인가요|인지|입니까|니|냐|죠))?|누가|(?:사람|분|이름)(?:을|를|이|가)?|(?:알려|보여)\s*\S*|확인\s*\S*)(?=\s|[?!.？！。]|$)/gu
+const whoPhrase = /누구(?:\s*(?:입니까|인가요|예요|인지|인지요|야|니|냐|지|죠|세요))?|누가/u
+const assigneeRequest = /(?:담당자|사람|분|이름)(?:을|를|이|가)?\s*(?:알려|보여|확인)/u
+const assigneePhrases = new RegExp(
+  String.raw`(?:^|\s)(?:(?:담당|맡)(?:\s*(?:하고\s*있는|고\s*있는|하는|한|은))?(?:\s*(?:거|것|사람|분)|자)?(?:을|를|이|가|은|는)?|${whoPhrase.source}|(?:사람|분|이름)(?:을|를|이|가)?|(?:알려|보여)\s*\S*|확인\s*\S*)(?=\s|[?!.？！。]|$)`, 'gu')
 
 export function assigneeWorkQuestion(question, previous, viewerName, today) {
-  if (reasonWords.test(question) || !assigneeRole.test(question) || !assigneeRequest.test(question)) return null
+  if (reasonWords.test(question) || !assigneeRole.test(question) || !(whoPhrase.test(question) || assigneeRequest.test(question))) return null
   const terms = question.replace(asksWhichTeam, ' ').replace(assigneePhrases, ' ')
   const filters = workQuestion(`${terms} 업무`, null, viewerName, today)
   if (filters?.name || filters?.team || filters?.keyword) return { filters }
