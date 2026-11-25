@@ -259,19 +259,32 @@ export default function TeamWorkspace({ onOpenChat, view, navigate }: {
         user={user} kind={currentReport} teamId={viewTeam} readOnly={!!viewTeam} initialDay={linkedDay} />}
   </>
 
-  // 설정: 관리자는 조직 관리, 팀장은 자기 팀원 초대, 그 외에는 안내만 봅니다.
+  const managedMembers = user?.managedTeamId && loadedMembersTeam === user.managedTeamId ? members : []
+  const removeMemberPanel = user?.managedTeamId ? <RemoveTeamMember members={managedMembers} onRemoved={id => {
+    setMembers(current => current.filter(member => member.id !== id))
+    void reloadTeams().catch(error => setError(message(error)))
+  }} /> : null
+
   const settingsPanel = user && <>
-    {isAdmin ? <OrgAdmin teams={teams} reloadTeams={reloadTeams} user={user} onSessionChanged={async () => {
+    {isAdmin ? <><OrgAdmin teams={teams} reloadTeams={reloadTeams} user={user} onSessionChanged={async () => {
       setSession(await teamGet<TeamSession>('auth/session'))
-    }} />
+    }} />{removeMemberPanel}</>
+      : user.managedTeamId ? <section className="sw-settings-stack" aria-labelledby="team-org-title">
+        <h2 id="team-org-title">조직 관리</h2>
+        <section className="sw-card sw-members" aria-labelledby="managed-members-title">
+          <h2 id="managed-members-title">{user.teamName} 구성원</h2>
+          {loadedMembersTeam !== user.managedTeamId ? <p role="status">구성원을 불러오는 중입니다.</p>
+            : <ul>{managedMembers.map(member => <li key={member.id}>
+              <span><strong>{member.name}</strong><small>{titleLabel(member)}{member.id === user.id && ' · 내 계정'}</small></span>
+            </li>)}</ul>}
+        </section>
+        <TeamInvites user={user} />
+        {removeMemberPanel}
+        <LeadTransfer user={user} members={managedMembers} onDone={async () => {
+          setSession(await teamGet<TeamSession>('auth/session'))
+        }} />
+      </section>
       : !!user.teamId && <TeamInvites user={user} />}
-    {!isAdmin && !!user.managedTeamId && <LeadTransfer user={user} members={members} onDone={async () => {
-      setSession(await teamGet<TeamSession>('auth/session'))
-    }} />}
-    {!!user.managedTeamId && <RemoveTeamMember members={loadedMembersTeam === user.managedTeamId ? members : []} onRemoved={id => {
-      setMembers(current => current.filter(member => member.id !== id))
-      void reloadTeams().catch(error => setError(message(error)))
-    }} />}
     <ProfileSettings user={user} onChanged={changed => setSession(current => current && { ...current, user: changed })} />
     <PasswordSettings onChanged={() => {
       setSession({ user: null, setupRequired: false })

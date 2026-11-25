@@ -4,7 +4,11 @@ import { apiRequest } from '../api/request'
 import './WorkAssistant.css'
 
 const approvalLabels = { APPROVED: '승인 완료', PENDING: '결재 대기', DRAFT: '초안' }
-const examples = ['삼성전자 납품 일정은 언제로 정했어?', '부서별 인원 알려줘', '이번 주 마감 업무 알려줘']
+const examples = [
+  '이번 주 마감 업무 알려줘',
+  '우리 팀 주간 업무보고 보여줘',
+  '부서별 인원 알려줘',
+]
 type Source = { route: string; title: string; context: string; date: string; excerpt: string; approvalStatus?: keyof typeof approvalLabels | null }
 type WorkContext = { name: string | null; team: string | null; keyword?: string | null; period: string | null; status: string; dateField: string }
 type Evidence = { title: string; message: string | null; quotes: (Pick<Source, 'route' | 'title' | 'approvalStatus'> & { text: string })[] }
@@ -19,7 +23,8 @@ export function AssistantLauncher() {
     <button className="sw-assistant-launcher" type="button" aria-label="AI 비서 열기"
       aria-haspopup="dialog" aria-controls="assistant-dialog" aria-expanded={open}
       onClick={() => { dialog.current?.showModal(); setOpen(true) }}>
-      <Bot size={26} aria-hidden="true" />
+      <Bot size={23} aria-hidden="true" />
+      <span>AI 비서</span>
     </button>
     <dialog id="assistant-dialog" className="sw-assistant-dialog" ref={dialog}
       aria-labelledby="assistant-title" onClose={() => setOpen(false)}
@@ -101,9 +106,11 @@ export default function WorkAssistant({ onClose }: { onClose?: () => void }) {
 
       <div className="sw-assistant-log" ref={log}>
         {!asked && <div className="sw-assistant-intro">
-          <p>업무 일정, 담당자, 회의 결정 사항, 부서 인원 등을 물어보세요.</p>
+          <h2>무엇을 확인할까요?</h2>
           <ul aria-label="질문 예시">{examples.map(example => <li key={example}>
-            <button type="button" onClick={() => void submit(example)} disabled={pending}>{example}</button>
+            <button type="button" onClick={() => void submit(example)} disabled={pending}>
+              <span>{example}</span><ArrowRight size={16} aria-hidden="true" />
+            </button>
           </li>)}</ul>
         </div>}
 
@@ -137,12 +144,14 @@ export default function WorkAssistant({ onClose }: { onClose?: () => void }) {
             <ul>{result.sources.map(source => <li key={source.route}>
               <a href={'#' + source.route} onClick={closeForLink}>
                 <FileText size={16} aria-hidden="true" />
-                <span className="sw-assistant-source-title">{source.title}</span>
+                <div className="sw-assistant-source-content">
+                  <span className="sw-assistant-source-title">{source.title}</span>
+                  <small>{source.context}{source.date && ` · ${source.date}`}
+                    {source.approvalStatus && <b className={'sw-assistant-status-' + source.approvalStatus.toLowerCase()}>{approvalLabels[source.approvalStatus]}</b>}</small>
+                  {source.excerpt && <p className="sw-assistant-excerpt">{source.excerpt}</p>}
+                </div>
                 <ArrowRight size={14} aria-hidden="true" />
               </a>
-              <small>{source.context}{source.date && ` · ${source.date}`}
-                {source.approvalStatus && <b className={'sw-assistant-status-' + source.approvalStatus.toLowerCase()}>{approvalLabels[source.approvalStatus]}</b>}</small>
-              {source.excerpt && <p className="sw-assistant-excerpt">{source.excerpt}</p>}
             </li>)}</ul>
           </section> : !result.answer && <p className="sw-assistant-notice" role="status">
             관련 업무나 회의를 찾지 못했습니다. 예: “이번 주 내 업무”, “우리 팀 오늘 마감인 업무”, “어제 일일회의 내용”처럼 기간·팀·업체명을 넣어 물어보세요.</p>}

@@ -280,29 +280,41 @@ button.sw-stat:hover { border-color: #bfdbfe; }
   .sw-system-workspace { grid-template-columns: minmax(0,1fr); }
   .sw-mobile-menu { display: inline-flex; }
   .sw-sidebar { display: none; }
-  .sw-sidebar-open { display: block; position: fixed; z-index: 6; inset: 0 auto 0 0; width: min(240px,86vw); }
+  .sw-sidebar-open { display: block; position: fixed; z-index: 6; inset: 0 auto 0 0; width: min(280px,86vw); overflow-y: auto; overscroll-behavior: contain; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
   .sw-sidebar-overlay { display: block; position: fixed; inset: 0; z-index: 5; background: #0f172a44; }
 }
 @media (max-width: 720px) {
-  .sw-top { padding: 8px 12px; gap: 6px; }
+  .sw-top { padding: 8px 12px; gap: 8px; }
   .sw-portal-top { height: auto; min-height: 64px; flex-wrap: wrap; }
   .sw-profile summary > span:nth-child(2), .sw-profile summary > svg { display: none; }
   .sw-top-actions { gap: 4px; }
-  .sw-portal { padding: 16px 12px; }
+  .sw-top :is(.sw-icon-button, .sw-profile summary) { display: flex; align-items: center; justify-content: center; width: 44px; min-height: 44px; }
+  .sw-search { flex: 1 1 0; width: auto; min-width: 0; min-height: 44px; }
+  .sw-search svg { flex: none; }
+  .sw-portal { padding: 16px 12px 88px; }
   .sw-quick, .sw-widgets { grid-template-columns: 1fr; }
   .sw-quick { gap: 13px; }
   .sw-quick-card { min-height: 0; padding: 20px; }
-  .sw-workspace-main { padding: 13px 10px; }
+  .sw-workspace-main { min-width: 0; padding: 13px 10px 88px; }
   .sw-kpis:not(.sw-crm-kpis) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .sw-calendar-tools { display: grid; padding: 10px; }
+  .sw-calendar-tools h2 { margin: 0; font-size: 19px; }
+  .sw-calendar-tools button { min-height: 44px; }
+  .sw-calendar-tools .sw-period-nav button { min-width: 44px; }
   .sw-day { min-height: 48px; padding: 1px; }
   .sw-days-week .sw-day { min-height: 60px; }
-  .sw-date { gap: 2px; padding: 2px; min-height: 31px; }
+  .sw-date { gap: 2px; padding: 2px; min-height: 44px; }
   .sw-date small { display: none; }
   .sw-events { display: none; }
   .sw-days-day .sw-events { display: grid; }
   .sw-mobile-count { display: inline; color: #1e40af; font-size: 12px; }
   .sw-widgets > section { height: 280px; }
   .sw-weekday { padding: 6px 4px; text-align: center; font-size: 13px; }
+  .sw-date-list { display: grid; gap: 6px; padding: 12px; background: #f8fafc; }
+  .sw-date-list button { min-height: 44px; padding: 8px 10px; text-align: left; overflow-wrap: anywhere; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+  .sw-drawer footer { flex-wrap: wrap; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .sw-system :is(.sw-drawer, .sw-search, .sw-search-panel, .sw-report-form, .ttech-form) :is(input:not([type=checkbox]), select, textarea) { font-size: 16px; }
+  .sw-system .sw-alert-panel { position: fixed; inset: 64px 12px auto; width: auto; }
 }
 .sw-readonly { margin-left: 4px; border-radius: 999px; background: #fef3c7; padding: 2px 8px; color: #92400e; font-size: 12px; font-weight: 700; }
 

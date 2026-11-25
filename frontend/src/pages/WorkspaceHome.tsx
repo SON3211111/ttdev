@@ -53,7 +53,7 @@ export default function WorkspaceHome({ user, teams, members, openTeam, openPers
       </div>
       <div className="sw-spaces-actions">
         <span className="sw-role-chip"><ShieldCheck size={15} />{user.name} {titleLabel(user)}</span>
-        {user.isAdmin && <button type="button" className="sw-secondary" onClick={openSettings}>조직 관리</button>}
+        {(user.isAdmin || user.managedTeamId) && <button type="button" className="sw-secondary" onClick={openSettings}>조직 관리</button>}
         {canInvite && <button type="button" className="sw-primary" aria-expanded={inviting} onClick={() => setInviting(value => !value)}><UserPlus size={16} />새 팀원 초대</button>}
       </div>
     </header>
@@ -100,7 +100,7 @@ export default function WorkspaceHome({ user, teams, members, openTeam, openPers
 
     <div className="sw-space-bottom">
       {user.teamId && <section className="sw-card sw-members" aria-labelledby="space-members-title">
-        <h2 id="space-members-title"><Users size={18} />{user.teamName} 구성원 ({members.length}명)<small>{user.isAdmin ? '조직 관리에서 팀장 지정·팀 이동' : '팀원 누구나 초대 링크 발급'}</small></h2>
+        <h2 id="space-members-title"><Users size={18} />{user.teamName} 구성원 ({members.length}명)<small>{user.isAdmin ? '조직 관리에서 팀장 지정·팀 이동' : user.managedTeamId ? '조직 관리에서 팀원 관리' : '팀원 누구나 초대 링크 발급'}</small></h2>
         <ul>{members.map(member => <li key={member.id} className={member.role === 'LEAD' ? 'sw-member-lead' : ''}>
           <span className="sw-avatar">{member.name[0]}</span>
           <span><strong>{member.name} <b>{titleLabel(member)}</b></strong><small>{member.email}</small></span>
