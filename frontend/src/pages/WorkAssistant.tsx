@@ -6,9 +6,10 @@ import './WorkAssistant.css'
 const approvalLabels = { APPROVED: '승인 완료', PENDING: '결재 대기', DRAFT: '초안' }
 const examples = ['삼성전자 납품 일정은 언제로 정했어?', '부서별 인원 알려줘', '이번 주 마감 업무 알려줘']
 type Source = { route: string; title: string; context: string; date: string; excerpt: string; approvalStatus?: keyof typeof approvalLabels | null }
-type WorkContext = { name: string | null; team: string | null; period: string | null; status: string; dateField: string }
+type WorkContext = { name: string | null; team: string | null; keyword?: string | null; period: string | null; status: string; dateField: string }
 type Evidence = { title: string; message: string | null; quotes: (Pick<Source, 'route' | 'title' | 'approvalStatus'> & { text: string })[] }
-type Answer = { answer: string | null; sources: Source[]; unavailable: boolean; kind?: 'assignment' | 'history'; criteria?: string[]; context?: WorkContext; evidence?: Evidence[] }
+const answerTitles = { history: '변경 경위', assignment: '업무 조회', meeting: '회의 조회', approval: '결재 조회', org: '조직 조회', stats: '업무 집계', help: '안내' }
+type Answer = { answer: string | null; sources: Source[]; unavailable: boolean; kind?: keyof typeof answerTitles; criteria?: string[]; context?: WorkContext; evidence?: Evidence[] }
 
 export function AssistantLauncher() {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -55,8 +56,9 @@ export default function WorkAssistant({ onClose }: { onClose?: () => void }) {
         method: 'POST', body: JSON.stringify({ question: text, context, references: references.current }), signal: controller.signal,
       }, 45000)
       setResult(answer)
-      setContext(answer.context)
-      references.current = answer.sources.slice(0, 5).map(source => source.route)
+      // 되묻는 답이나 원문 없는 답 뒤에도 이어지는 질문("그중", "그거")이 앞 조건·원문을 쓰도록 유지한다.
+      setContext(answer.context ?? context)
+      if (answer.sources.length) references.current = answer.sources.slice(0, 5).map(source => source.route)
       setQuestion('')
     } catch (error) {
       if (!controller.signal.aborted) setError(error instanceof Error ? error.message : '질문을 처리하지 못했습니다.')
@@ -83,7 +85,7 @@ export default function WorkAssistant({ onClose }: { onClose?: () => void }) {
   function closeForLink(event: MouseEvent<HTMLAnchorElement>) {
     if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) onClose?.()
   }
-  const answerTitle = result?.kind === 'history' ? '변경 경위' : result?.kind === 'assignment' ? '업무 조회' : '답변'
+  const answerTitle = result?.kind ? answerTitles[result.kind] : '답변'
 
   return <Container className="sw-system sw-assistant">
     {!onClose && <a className="sw-secondary sw-assistant-home" href="#portal"><ArrowLeft size={16} /> 홈</a>}
@@ -143,7 +145,7 @@ export default function WorkAssistant({ onClose }: { onClose?: () => void }) {
               {source.excerpt && <p className="sw-assistant-excerpt">{source.excerpt}</p>}
             </li>)}</ul>
           </section> : !result.answer && <p className="sw-assistant-notice" role="status">
-            관련 업무나 회의를 찾지 못했습니다. 업체명이나 업무 제목으로 다시 검색해 보세요.</p>}
+            관련 업무나 회의를 찾지 못했습니다. 예: “이번 주 내 업무”, “우리 팀 오늘 마감인 업무”, “어제 일일회의 내용”처럼 기간·팀·업체명을 넣어 물어보세요.</p>}
         </>}
       </div>
 

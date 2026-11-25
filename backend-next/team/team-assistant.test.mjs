@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { assistant } from './team-assistant.mjs'
+import { assistant, completeSentences } from './team-assistant.mjs'
 import { teamBriefing } from './team-work.mjs'
 import { workQuestion, workPeriod } from './assistant-work-query.mjs'
 
@@ -129,7 +129,7 @@ test('팀 이름과 인원 단어가 있어도 업무·회의·명단 질문은 
     '솔루션개발 2팀 사람 누구야?', '솔루션개발 2팀 구성원 명단 보여줘', '솔루션개발 2팀 몇 명이 맡았어?']) {
     const request = new Request('http://localhost/api/team/assistant', { method: 'POST', body: JSON.stringify({ question }) })
     const answer = await assistant(db, request, { id: 3, teamId: 5, isAdmin: false }).then(r => r.json(), () => null)
-    assert.doesNotMatch(answer?.answer ?? '', /활성 구성원은|해당 팀을 찾지 못했습니다/, question)
+    assert.doesNotMatch(answer?.answer ?? '', /현재 활성 구성원은/, question)
   }
 })
 
@@ -203,4 +203,47 @@ test('벡터 서비스 장애와 키워드 미일치 시 생성 호출 없이 �
   assert.ok(Object.values(calls[0].values).includes('삼성전자'))
   assert.ok(!calls[0].sql.includes('삼성전자'))
   assert.ok(fetch.mock.calls.every(call => call.arguments[0].pathname.startsWith('/collections/')))
+})
+
+test('“어떻게 돼”·“할 일”·“내 업무” 기간 질문은 업무 DB 조회로 읽는다', () => {
+  const week = { name: null, team: null, keyword: null, exclude: null, period: 'thisWeek', status: 'open', dateField: 'overlap' }
+  for (const question of ['이번주업무 어떻게 돼?', '이번 주 업무 어떻게 돼요?', '이번 주 업무 어떻게 돼 있어?', '이번주 할 일 알려줘', '이번 주 업무 현황'])
+    assert.deepEqual(workQuestion(question, null, '정하늘'), week, question)
+  assert.deepEqual(workQuestion('이번주 내 업무', null, '정하늘'), { ...week, name: '정하늘' })
+  assert.deepEqual(workQuestion('오늘 내 할 일', null, '정하늘'), { ...week, name: '정하늘', period: 'today' })
+  assert.equal(workQuestion('이번주 내 업무', null, null), null)
+  assert.equal(workQuestion('삼성전자 이번 주 업무 어떻게 돼?', null, '정하늘').keyword, '삼성전자')
+  assert.equal(workQuestion('내일 어때?', null, '정하늘').period, 'tomorrow')
+  for (const question of ['이번 주 회의 어떻게 돼?'])
+    assert.equal(workQuestion(question, null, '정하늘'), null, question)
+})
+
+test('생성 한도로 끊긴 답은 마지막 완결 문장까지만 남긴다', () => {
+  assert.equal(completeSentences('첫 문장입니다. 둘째 문장도 끝났습니다. 셋째는 진행 중인 업무를 우선'), '첫 문장입니다. 둘째 문장도 끝났습니다.')
+  assert.equal(completeSentences('“마감은 11월 25일입니다.”'), '마감은 11월 25일입니다.')
+  assert.equal(completeSentences('완결된 답입니다.'), '완결된 답입니다.')
+  assert.equal(completeSentences('   '), null)
+})
+
+test('팀 띄어쓰기·예정·날짜·요일·사람 이름·키워드가 섞인 업무 질문을 조건으로 나눈다', () => {
+  const ask = question => workQuestion(question, null, '정하늘', '2026-11-25')
+  assert.deepEqual(ask('솔루션개발2팀에서 이번주예정인 업무 뭐있어'),
+    { name: null, team: '솔루션개발2팀', keyword: null, exclude: null, period: 'thisWeek', status: 'open', dateField: 'overlap' })
+  assert.equal(ask('이번주 예정 업무').period, 'thisWeek')
+  assert.deepEqual([ask('내일 마감인 업무').name, ask('내일 마감인 업무').period, ask('내일 마감인 업무').dateField], [null, 'tomorrow', 'due'])
+  assert.equal(ask('11월 27일 업무 뭐야').period, '2026-11-27')
+  assert.equal(ask('금요일 마감 업무').period, '2026-11-27')
+  assert.equal(ask('다음 주 월요일 일정').period, '2026-11-30')
+  assert.equal(ask('김지우 팀장 업무 뭐야').name, '김지우')
+  assert.equal(ask('이민준 이번주 업무').keyword, '이민준')
+  assert.equal(ask('삼성전자 이번 주 업무').keyword, '삼성전자')
+  assert.equal(ask('우리팀 이번주 업무').team, '우리팀')
+  assert.equal(ask('이번 주에 마감되는 거 뭐 있어').dateField, 'due')
+  for (const question of ['삼성전자 납품 일정은 언제로 정했어?', '이번 주 회의 어떻게 돼?', 'TSK-0085 변경 경위 알려줘'])
+    assert.equal(ask(question), null, question)
+})
+
+test('생성 답의 인사말과 자기소개 문장을 걷어낸다', () => {
+  assert.equal(completeSentences('안녕하세요, t&tech 사내 업무 비서입니다. 이번 주 마감은 3건입니다.'), '이번 주 마감은 3건입니다.')
+  assert.equal(completeSentences('안녕하세요, 테크놀로지 팀입니다. 이민준 담당자입니다. 납품은 27일입니다.'), '납품은 27일입니다.')
 })

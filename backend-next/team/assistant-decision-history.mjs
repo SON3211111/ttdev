@@ -1,5 +1,6 @@
 import { query } from '../db/db.mjs'
 import { canViewAll } from './team-auth.mjs'
+import { seoulToday } from '../lib/validation.mjs'
 
 const dateInText = /\d{1,2}\s*월\s*\d{1,2}\s*일|\d{4}[-./]\s*\d{1,2}[-./]\s*\d{1,2}|\d{1,2}\/\d{1,2}/u
 const schedule = /일정|납품|납기|출고|배송|마감|기한|일자|날짜|시작|종료/u
@@ -41,11 +42,20 @@ export function decisionEvidence(work, meetings) {
   ]
 }
 
+// 업체명·제목이 맞는 업무가 여럿이면 질문 단어가 제목에 가장 많이 들어간 업무를, 같으면 일정이 오늘과 가장 가까운 업무를 고른다.
+export function pickWork(candidates, question) {
+  if (candidates.length <= 1) return candidates[0] ?? null
+  const words = (question.match(/[\p{L}\p{N}]{2,}/gu) ?? []).map(word => word.replace(/(?:은|는|이|가|을|를|의|에)$/u, ''))
+  const score = work => words.filter(word => word.length >= 2 && work.title.includes(word)).length
+  const best = Math.max(...candidates.map(score))
+  return candidates.find(work => score(work) === best)
+}
+
 export async function readDecisionHistory(db, user, question, workId, reference) {
   const workRoute = reference?.route
   const referencedId = workRoute?.match(/^(?:work|personal-work)\/(\d+)/u)?.[1]
   const targetId = workId ?? (referencedId ? Number(referencedId) : null)
-  const matches = await query(db, `SELECT TOP (2) w.id,w.team_id AS team,w.title,w.company,
+  const candidates = await query(db, `SELECT TOP (40) w.id,w.team_id AS team,w.title,w.company,
     COALESCE(t.name,N'개인 캘린더') AS context,CONVERT(char(10),w.due_date,23) AS [date],
     CASE WHEN w.personal_owner_id IS NULL THEN CONCAT('work/',w.id,'?team=',w.team_id)
       ELSE CONCAT('personal-work/',w.id) END AS route
@@ -54,13 +64,13 @@ export async function readDecisionHistory(db, user, question, workId, reference)
       AND ((@target IS NOT NULL AND w.id=@target) OR (@target IS NULL AND
         ((LEN(w.title)>=2 AND CHARINDEX(REPLACE(w.title,N' ',N''),@question)>0)
           OR (LEN(w.company)>=2 AND CHARINDEX(REPLACE(w.company,N' ',N''),@question)>0))))
-    ORDER BY w.id`, { owner: user.id, team: user.teamId, allTeams: canViewAll(user) ? 1 : 0,
-    target: targetId, question: question.replace(/\s/gu, '') })
-  if (matches.length !== 1) {
+    ORDER BY ABS(DATEDIFF(day,@today,w.due_date)),w.id`, { owner: user.id, team: user.teamId, allTeams: canViewAll(user) ? 1 : 0,
+    target: targetId, question: question.replace(/\s/gu, ''), today: seoulToday() })
+  const work = pickWork(candidates, question)
+  if (!work) {
     return { sources: [], answer: '어느 업무의 변경 경위를 볼까요? 업무 제목이나 TSK 업무 번호를 알려주세요.', unavailable: false }
   }
 
-  const work = matches[0]
   const meetings = work.team == null ? [] : await query(db, `SELECT
     CONCAT('team-reports?kind=',m.kind,'&date=',CONVERT(char(10),m.meeting_date,23),'&team=',m.team_id) AS route,
     CONCAT(CONVERT(char(10),m.meeting_date,23),CASE m.kind WHEN 'daily' THEN N' 일일회의' ELSE N' 주간회의' END) AS title,
@@ -70,9 +80,10 @@ export async function readDecisionHistory(db, user, question, workId, reference)
       SELECT 1 FROM OPENJSON(m.work_ids) WHERE TRY_CONVERT(int,value)=@work
     ) ORDER BY m.meeting_date DESC,m.kind`, { team: work.team, work: work.id })
   const { route, title, context, date } = work
+  const others = candidates.length > 1 ? ` 같은 업체·제목의 업무가 ${candidates.length}건 있어 질문과 가장 맞고 일정이 가까운 ${date} 업무 기준으로 찾았습니다.` : ''
   return {
     kind: 'history', sources: [{ route, title, context, date, excerpt: '' }],
-    answer: meetings.length ? `${title}의 변경 경위입니다.` : `${title}에 연결된 회의 기록을 찾지 못했습니다.`,
+    answer: (meetings.length ? `${title}의 변경 경위입니다.` : `${title}에 연결된 회의 기록을 찾지 못했습니다.`) + others,
     evidence: decisionEvidence(work, meetings), unavailable: false,
   }
 }

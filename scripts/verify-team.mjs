@@ -479,6 +479,26 @@ assert.deepEqual(progressOnly.sources.map(item => item.title), ['이번 주 마�
 const doneOnly = await askWithContext('완료된 것만', phrased.context)
 assert.deepEqual(doneOnly.sources.map(item => item.title), ['완료한 담당 업무'])
 await post('assistant', 400, { question: '다음 주는?', context: { ...phrased.context, status: 'not-a-status' } }, lead.cookie)
+for (const question of ['이번주업무 어떻게 돼?', '이번 주 할 일 알려줘']) {
+  const weekly = (await ask(question, lead.cookie)).data
+  assert.equal(weekly.kind, 'assignment', question)
+  assert.ok(weekly.criteria.some(item => item.startsWith('이번 주 업무 기간')), question)
+  assert.equal(weekly.context.name, null)
+}
+const spaced = (await ask('기술영업 1팀 이번 주 업무', admin.cookie)).data
+const compact = (await ask('기술영업1팀에서 이번주예정인 업무 뭐있어', admin.cookie)).data
+assert.equal(compact.kind, 'assignment')
+assert.deepEqual(compact.sources.map(item => item.route), spaced.sources.map(item => item.route))
+const seoulNow = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date())
+const dated = (await ask(`${+seoulNow.slice(5, 7)}월 ${+seoulNow.slice(8, 10)}일 업무 뭐야`, admin.cookie)).data
+assert.equal(dated.kind, 'assignment')
+assert.ok(dated.criteria.some(item => item.includes(`(${seoulNow})`)), JSON.stringify(dated.criteria))
+const tomorrowDue = (await ask('내일 마감인 업무', lead.cookie)).data
+assert.equal(tomorrowDue.context.name, null)
+assert.equal(tomorrowDue.context.period, 'tomorrow')
+const mine = (await ask('이번주 내 업무', lead.cookie)).data
+assert.equal(mine.kind, 'assignment')
+assert.equal(mine.context.name, (await request('auth/session', 200, { cookie: lead.cookie })).data.user.name)
 console.log('PASS structured date/status follow-ups, visible criteria and validation')
 
 const countQuestion = '현재 솔루션개발2팀의 팀원수가 몇명이야?'
@@ -515,6 +535,23 @@ assert.equal((await ask('솔루션 개발팀은 몇 명', assignmentOwner.cookie
   '솔루션개발팀 전체(열람할 수 있는 1개 부서)의 현재 활성 구성원은 총 1명입니다.\n· 솔루션개발 2팀 1명')
 const labCount = adminTeams.find(team => team.name === '기업부설연구소').memberCount
 assert.equal((await ask('기업부설연구소 인원 몇명?', admin.cookie)).data.answer, `기업부설연구소의 현재 활성 구성원은 ${labCount}명입니다.`)
+// 조직·결재·회의·집계·안내는 AI 생성 없이 DB로 답한다.
+assert.ok((await ask('안녕', admin.cookie)).data.answer.startsWith('업무·회의 기록에서'))
+assert.ok((await ask('솔루션개발 2팀 구성원 누구야?', admin.cookie)).data.answer.includes('박검증'))
+assert.equal((await ask('기술영업 1팀 구성원 누구야?', assignmentOwner.cookie)).data.answer, '열람할 수 있는 팀 범위에서 해당 팀을 찾지 못했습니다.')
+const pendingMeetings = (await ask('결재 대기 중인 회의록 있어?', admin.cookie)).data
+assert.equal(pendingMeetings.kind, 'approval')
+assert.ok(pendingMeetings.sources.every(item => item.approvalStatus === 'PENDING'))
+const overdueList = (await ask('지연된 업무 있어?', admin.cookie)).data
+const overdueByTeam = (await ask('팀별 지연 업무 건수', admin.cookie)).data
+assert.ok(overdueByTeam.answer.startsWith(`팀별 기한 초과 업무입니다(총 ${overdueList.sources.length}건).`) || (!overdueList.sources.length && overdueByTeam.answer.includes('찾지 못했습니다')), overdueByTeam.answer)
+assert.ok((await ask('이번 주 완료율 몇 퍼센트야?', admin.cookie)).data.answer.startsWith('완료율은 '))
+const weekMeetings = (await ask('이번 주 회의 어떻게 돼?', admin.cookie)).data
+assert.equal(weekMeetings.kind, 'meeting')
+assert.ok(weekMeetings.criteria.some(item => item.startsWith('이번 주')))
+assert.ok(weekMeetings.sources.every(item => item.route.startsWith('team-reports')))
+const permission = (await ask('다른 팀 업무도 볼 수 있어?', assignmentOwner.cookie)).data
+assert.ok(permission.answer.startsWith('현재 계정은 소속 팀과 본인 개인'))
 const originalPhrasing = (await ask('박검증 프로가 맡은 업무가 뭐있어?', admin.cookie)).data
 assert.equal(originalPhrasing.kind, 'assignment')
 assert.equal(originalPhrasing.context.name, '박검증')
@@ -527,9 +564,12 @@ const followReference = (question, references) => post('assistant', 200, { quest
 const deadline = await followReference('그거 언제까지야?', [sourceRoute])
 assert.match(deadline.data.answer, /2026-12-08/)
 assert.deepEqual(deadline.data.sources.map(item => item.route), [sourceRoute])
-const unclear = await followReference('그거 언제까지야?', [sourceRoute, otherRoute])
-assert.deepEqual(unclear.data.sources, [])
-assert.match(unclear.data.answer, /여러 건/)
+// 여러 원문 중 볼 수 있는 업무만 마감일을 답하고, 다른 팀 업무는 원문·답에서 빠진다.
+const mixed = await followReference('그거 언제까지야?', [sourceRoute, otherRoute])
+assert.deepEqual(mixed.data.sources.map(item => item.route), [sourceRoute])
+assert.match(mixed.data.answer, /2026-12-08/)
+const both = await followReference('그거 언제까지야?', [sourceRoute, sourceRoute.replace(String(assistantWork.id), String(thisWeekItem.id))])
+assert.match(both.data.answer, /2건의 마감일/)
 const deniedReference = await followReference('그거 언제까지야?', [otherRoute])
 assert.deepEqual(deniedReference.data.sources, [])
 assert.match(deniedReference.data.answer, /어느 업무/)
