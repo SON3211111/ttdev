@@ -509,6 +509,44 @@ assert.equal(expectedCount, 1)
 assert.equal((await ask(countQuestion, admin.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
 assert.equal((await ask(countQuestion, assignmentOwner.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
 assert.equal((await ask(countQuestion, lead.cookie)).data.answer, '열람할 수 있는 팀 범위에서 해당 팀을 찾지 못했습니다.')
+const actualWeekly = (await post('work', 201, { ...workInput, category: 'DEVELOP', company: null,
+  title: '솔루션개발 주간 일정 검증', notes: '설계 판단 이유를 기록했습니다.', startDate: today, dueDate: today }, assignmentOwner.cookie)).data
+await post('work', 201, { ...workInput, category: 'DEVELOP', company: null, title: '다음 주 개발 업무',
+  startDate: nextMonday, dueDate: nextMonday }, assignmentOwner.cookie)
+await post('work', 201, { ...workInput, title: '다른 팀 설계 판단 검증', notes: '설계 판단 이유를 기록했습니다.',
+  startDate: today, dueDate: today }, lead.cookie)
+const weeklyTeamQuestion = '솔루션 개발2팀 이번주 예정업무'
+for (const cookie of [admin.cookie, assignmentOwner.cookie]) {
+  const scoped = (await ask(weeklyTeamQuestion, cookie)).data
+  assert.equal(scoped.kind, 'assignment')
+  assert.deepEqual(scoped.sources.map(item => item.route), ['work/' + actualWeekly.id + '?team=' + solutionTwo.id])
+  assert.ok(scoped.criteria.some(item => item.includes('이번 주')))
+}
+const deniedWeek = (await ask(weeklyTeamQuestion, lead.cookie)).data
+assert.deepEqual(deniedWeek.sources, [])
+assert.match(deniedWeek.answer, /열람 권한이 없는 팀/)
+const scopedEvidence = (await ask('솔루션 개발2팀 설계 판단 이유', admin.cookie)).data.sources
+assert.ok(scopedEvidence.some(item => item.route === 'work/' + actualWeekly.id + '?team=' + solutionTwo.id))
+assert.ok(scopedEvidence.every(item => item.context === '솔루션개발 2팀'))
+console.log('PASS spaced team name on weekly schedule and team-scoped evidence')
+
+const companyQuestion = '솔루션개발2팀에서 맡고있는 현대자동차 업무 뭐있는지 보여줘'
+const companyFixture = { ...workInput, category: 'DEVELOP', startDate: today, dueDate: today }
+await post('work', 201, { ...companyFixture, company: '현대자동차', title: '완료된 자동차 업무', status: 'DONE' }, assignmentOwner.cookie)
+await post('work', 201, { ...companyFixture, company: '현대오토에버', title: '유사 업체 업무',
+  notes: '현대자동차를 참고 사례로 검토함' }, assignmentOwner.cookie)
+const emptyCompany = (await ask(companyQuestion, admin.cookie)).data
+assert.equal(emptyCompany.kind, 'assignment')
+assert.deepEqual(emptyCompany.sources, [])
+assert.equal(emptyCompany.unavailable, false)
+const matchingCompany = (await post('work', 201, { ...companyFixture, company: '현대자동차',
+  title: '진행 중인 기능 테스트', notes: '등록된 업체로만 검색해야 함' }, assignmentOwner.cookie)).data
+for (const cookie of [assignmentOwner.cookie, admin.cookie]) {
+  const companyWork = (await ask(companyQuestion, cookie)).data
+  assert.deepEqual(companyWork.sources.map(item => item.route), ['work/' + matchingCompany.id + '?team=' + solutionTwo.id])
+}
+assert.deepEqual((await ask(companyQuestion, lead.cookie)).data.sources, [])
+console.log('PASS exact company field, empty result, completion and permission exclusions')
 for (const question of ['솔루션개발 2팀 인원은 몇명이야 ?', '솔루션개발 2팀은 몇 명이야?', '솔루션개발 2팀에 몇 명 있어?', '솔루션개발 2팀 구성원 수 알려줘',
   '솔루션개발 2팀 사람 몇명이야?', '솔루션개발 2팀 인원이 어떻게 돼?', '솔루션개발 2팀 인원수는?', '솔루션개발 2팀 총 인원', '솔루션개발 2팀 몇명임']) {
   assert.equal((await ask(question, assignmentOwner.cookie)).data.answer, '솔루션개발 2팀의 현재 활성 구성원은 1명입니다.')
@@ -555,6 +593,9 @@ assert.ok(permission.answer.startsWith('현재 계정은 소속 팀과 본인 �
 const originalPhrasing = (await ask('박검증 프로가 맡은 업무가 뭐있어?', admin.cookie)).data
 assert.equal(originalPhrasing.kind, 'assignment')
 assert.equal(originalPhrasing.context.name, '박검증')
+const activePhrasing = (await ask('박검증 프로가 하고있는 업무 뭐있어?', admin.cookie)).data
+assert.deepEqual(activePhrasing.sources, originalPhrasing.sources)
+assert.equal(activePhrasing.context.keyword, null)
 console.log('PASS live team headcount, alternate spacing and permitted team scope')
 
 const sourceRoute = 'work/' + assistantWork.id + '?team=' + salesOne.id

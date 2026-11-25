@@ -4,6 +4,49 @@ import { assistant, completeSentences } from './team-assistant.mjs'
 import { teamBriefing } from './team-work.mjs'
 import { workQuestion, workPeriod } from './assistant-work-query.mjs'
 
+test('팀의 업체별 미완료 업무 질문은 정확한 키워드를 유지하고 0건도 DB 결과로 답한다', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('유사 업체 검색을 하면 안 된다') })
+  const statements = []
+  const db = { request() {
+    const params = {}
+    return { input(name, _type, value) { params[name] = value }, async query(sql) {
+      statements.push({ sql, params })
+      return { recordset: sql.startsWith('SELECT name FROM teams') ? [{ name: '솔루션개발 2팀' }] : [] }
+    } }
+  } }
+  const question = '솔루션개발2팀에서 맡고있는 현대자동차 업무 뭐있는지 보여줘'
+  const request = new Request('http://localhost/api/team/assistant', { method: 'POST', body: JSON.stringify({ question }) })
+  const result = await assistant(db, request, { id: 3, teamId: 2, isAdmin: true })
+  const data = await result.json()
+  assert.equal(result.headers.get('x-assistant-mode'), 'structured')
+  assert.equal(data.context.keyword, '현대자동차')
+  assert.deepEqual(data.sources, [])
+  assert.ok(statements.some(({sql, params}) => sql.includes('v.company') && params.companyKey === '현대자동차'))
+  assert.equal(fetch.mock.calls.length, 0)
+})
+
+test('팀명 가운데 공백이 있어도 이번 주 예정 업무를 해당 팀 SQL로 조회한다', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('모델 호출이 없어야 한다') })
+  const plans = []
+  const db = { request() {
+    const params = {}
+    return { input(name, _type, value) { params[name] = value }, async query(sql) {
+      plans.push(params)
+      return { recordset: sql.includes('FROM teams') && !sql.includes('FROM team_work')
+        ? [{ name: '솔루션개발 2팀' }] : [{ route: 'work/7?team=5', title: '이번 주 작업', context: '솔루션개발 2팀', date: '2026-11-26', excerpt: '' }] }
+    } }
+  } }
+  const request = new Request('http://localhost/api/team/assistant', { method: 'POST',
+    body: JSON.stringify({ question: '솔루션 개발2팀 이번주 예정업무' }) })
+  const response = await assistant(db, request, { id: 3, teamId: 5, isAdmin: true })
+  const result = await response.json()
+  assert.equal(response.headers.get('x-assistant-mode'), 'structured')
+  assert.equal(result.context.period, 'thisWeek')
+  assert.equal(result.context.keyword, null)
+  assert.ok(plans.some(params => params.teamKey === '솔루션개발2팀' && params.from && params.to))
+  assert.equal(fetch.mock.calls.length, 0)
+})
+
 test('단일 원문의 후속 마감일 질문은 최신 DB 값을 바로 답한다', async t => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('Model should not run') })
   const source = { route: 'work/7?team=2', title: '장비 출고', context: '기술영업', date: '2026-12-07', excerpt: '마감일 12월 7일' }
@@ -134,6 +177,9 @@ test('팀 이름과 인원 단어가 있어도 업무·회의·명단 질문은 
 })
 
 test('다른 표현과 날짜 후속 질문을 같은 구조로 읽는다', () => {
+  for (const question of ['손정익 프로가 하고있는 업무 뭐있어?', '손정익이 하고 있는 업무 뭐 있어?', '손정익님이 하는 작업 알려줘']) {
+    assert.deepEqual(workQuestion(question), workQuestion('손정익님 담당 업무 알려줘'), question)
+  }
   const first = workQuestion('손정익님 담당 건 뭐 있어?')
   assert.equal(first.name, '손정익')
   const due = workQuestion('그중 이번 주 마감만', first)

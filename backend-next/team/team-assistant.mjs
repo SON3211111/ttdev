@@ -38,7 +38,7 @@ export const assistantSourceRows = `(
       SELECT CASE WHEN w.personal_owner_id IS NULL THEN CONCAT('work/',w.id,'?team=',w.team_id)
                   ELSE CONCAT('personal-work/',w.id) END AS route,
         w.id AS workId, w.personal_owner_id AS owner, w.team_id AS team,
-        a.name AS assigneeName, w.status AS workStatus, w.start_date AS starts, w.completed_date AS completed, NULL AS approvalStatus,
+        a.name AS assigneeName, w.status AS workStatus, w.start_date AS starts, w.completed_date AS completed, NULL AS approvalStatus,w.company,
         w.title, COALESCE(t.name,N'개인 캘린더') AS context, CONVERT(char(10),w.due_date,23) AS [date],
         CONCAT_WS(N' · ', NULLIF(w.company,N''), CONCAT(N'담당자 ',a.name),
           CONCAT(N'기간 ',CONVERT(char(10),w.start_date,23),N' ~ ',CONVERT(char(10),w.due_date,23)),
@@ -47,7 +47,7 @@ export const assistantSourceRows = `(
       FROM team_work w JOIN team_users a ON a.id=w.assignee_id LEFT JOIN teams t ON t.id=w.team_id
       UNION ALL
       SELECT CONCAT('team-reports?kind=',m.kind,'&date=',CONVERT(char(10),m.meeting_date,23),'&team=',m.team_id),
-        NULL,NULL,m.team_id,NULL,NULL,NULL,NULL,m.approval_status,
+        NULL,NULL,m.team_id,NULL,NULL,NULL,NULL,m.approval_status,NULL,
         CONCAT(CONVERT(char(10),m.meeting_date,23),CASE m.kind WHEN 'daily' THEN N' 일일회의' ELSE N' 주간회의' END),
         t.name, CONVERT(char(10),m.meeting_date,23),
         CONCAT_WS(NCHAR(10), CASE WHEN m.agenda<>N'' THEN CONCAT(N'안건: ',CONVERT(nvarchar(max),m.agenda)) END,
@@ -70,9 +70,10 @@ function referencesOf(value) {
   return [...new Set(value)]
 }
 
-async function linkedSource(db, user, route) {
+async function linkedSource(db, user, route, teamName = null) {
   const [source] = await query(db, `SELECT ${sourceFields} FROM ${assistantSourceRows} v
-    WHERE ${visibleTo} AND v.route=@route`, { ...viewerScope(user), route })
+    WHERE ${visibleTo} AND ${teamMatch} AND v.route=@route`,
+  { ...viewerScope(user), route, teamKey: teamName?.replace(/\s/gu, '') ?? null })
   return source
 }
 
@@ -132,6 +133,18 @@ const teamMatch = `(@teamKey IS NULL OR (v.owner IS NULL AND (
   OR (@teamKey=N'우리팀' AND v.team=@team)
   OR (RIGHT(@teamKey,1)=N'팀' AND LEN(@teamKey)>2 AND NOT EXISTS (SELECT 1 FROM teams x WHERE REPLACE(x.name,N' ',N'')=@teamKey)
     AND LEFT(REPLACE(v.context,N' ',N''),LEN(@teamKey)-1)=LEFT(@teamKey,LEN(@teamKey)-1)))))`
+
+// 조직에 등록된 이름을 기준으로 '솔루션 개발2팀'처럼 중간에 끼어든 공백을 제거한다.
+async function normalizeMentionedTeam(db, question) {
+  const teams = await query(db, 'SELECT name FROM teams ORDER BY LEN(name) DESC,id')
+  for (const { name } of teams) {
+    const key = name.replace(/\s/gu, '')
+    const letters = [...key].map(char => RegExp.escape(char)).join('\\s*')
+    const mention = new RegExp(`(^|\\s)${letters}(?=$|[\\s?!.,？！。]|의|에서|에는|은|는|이|가|에)`, 'u')
+    if (mention.test(question)) return question.replace(mention, (_match, prefix) => prefix + key)
+  }
+  return question
+}
 // 데모처럼 'OOO (팀명)' 형식으로 저장된 이름도 같은 사람으로 본다.
 const assigneeMatch = "(@name IS NULL OR v.assigneeName=@name OR v.assigneeName LIKE @name+N' (%')"
 
@@ -153,11 +166,18 @@ function workFilter(user, filters, today, { ignoreStatus = false, dateFieldOverr
   const dateSql = { due: 'v.[date] BETWEEN @from AND @to', start: 'v.starts BETWEEN @from AND @to',
     completed: 'v.completed BETWEEN @from AND @to', overlap: 'v.starts<=@to AND v.[date]>=@from' }
   const keywords = keyword ? keyword.split(' ').slice(0, 2) : []
+  const containsKeywords = keywords.map((_, i) => `(CHARINDEX(@kw${i},v.title)>0 OR CHARINDEX(@kw${i},v.excerpt)>0)`).join(' AND ')
+  // 열람 가능한 업무에 등록된 정확한 업체명이면 업체 필드로 보고, 메모에 그 이름이 언급된 다른 업체는 제외한다.
+  const matchKeyword = keyword ? `AND (REPLACE(v.company,N' ',N'')=@companyKey OR (
+    NOT EXISTS (SELECT 1 FROM team_work c WHERE REPLACE(c.company,N' ',N'')=@companyKey
+      AND (c.personal_owner_id=@owner OR (c.personal_owner_id IS NULL AND (@allTeams=1 OR c.team_id=@team))))
+    AND ${containsKeywords}))` : ''
   const sql = `${visibleTo} AND v.workId IS NOT NULL AND ${assigneeMatch} AND ${teamMatch}
-    ${keywords.map((_, i) => `AND (CHARINDEX(@kw${i},v.title)>0 OR CHARINDEX(@kw${i},v.excerpt)>0)`).join(' ')}
+    ${matchKeyword}
     ${exclude ? 'AND CHARINDEX(@exclude,v.title)=0 AND CHARINDEX(@exclude,v.excerpt)=0' : ''}
     AND ${ignoreStatus ? '1=1' : statusSql[status]}${range ? ' AND ' + dateSql[dateField] : ''}`
   const params = { ...viewerScope(user), name, teamKey: teamName?.replace(/\s/gu, '') ?? null, today, exclude,
+    ...(keyword ? { companyKey: keyword.replace(/\s/gu, '') } : {}),
     ...Object.fromEntries(keywords.map((word, i) => ['kw' + i, word])), ...(range ? { from: range[0], to: range[1] } : {}) }
   const rangeLabel = range && `${periodLabel(period)} ${dateFields[dateField]} (${range[0]}${range[0] === range[1] ? '' : ' ~ ' + range[1]})`
   const criteria = [name, teamName, keyword && `‘${keyword}’ 포함`, exclude && `‘${exclude}’ 제외`, rangeLabel,
@@ -264,8 +284,8 @@ async function referencedWork(db, user, routes) {
   { ...viewerScope(user), routes: JSON.stringify(routes) })
 }
 
-async function findSources(db, user, terms, workId, hits, timing) {
-  const params = viewerScope(user)
+async function findSources(db, user, terms, workId, hits, timing, teamName = null) {
+  const params = { ...viewerScope(user), teamKey: teamName?.replace(/\s/gu, '') ?? null }
   const projection = sourceFields + ',v.owner,v.team'
   const keywords = async () => {
     if (!terms.length && !workId) return []
@@ -278,11 +298,11 @@ async function findSources(db, user, terms, workId, hits, timing) {
     })]
     return query(db, `SELECT TOP (5) ${projection} FROM ${assistantSourceRows} v
       CROSS APPLY (VALUES (${scores.join(' + ')})) rank(points)
-      WHERE ${visibleTo} AND rank.points>0 ORDER BY rank.points DESC,v.[date] DESC,v.route`, bindings)
+      WHERE ${visibleTo} AND ${teamMatch} AND rank.points>0 ORDER BY rank.points DESC,v.[date] DESC,v.route`, bindings)
   }
   const [exact, semantic] = await Promise.all([timing ? timing.measure('keyword', keywords) : keywords(), hits])
   const current = semantic.length ? await query(db, `SELECT ${projection} FROM ${assistantSourceRows} v
-      WHERE ${visibleTo} AND v.route IN (SELECT value FROM OPENJSON(@routes))`,
+      WHERE ${visibleTo} AND ${teamMatch} AND v.route IN (SELECT value FROM OPENJSON(@routes))`,
     { ...params, routes: JSON.stringify(semantic.map(hit => hit.route)) }) : []
   return mergeAssistantSources(exact, current, semantic).map(({ route, title, context, date, excerpt, approvalStatus }) =>
     ({ route, title, context, date, excerpt, ...(approvalStatus && { approvalStatus }) }))
@@ -328,7 +348,7 @@ async function headcountResult(db, user, countTarget, timing) {
 export async function assistant(db, request, user) {
   const timing = diagnostics()
   const input = await body(request, ['question', 'context', 'references'])
-  const question = text(input.question, 'question', 500, true)
+  let question = text(input.question, 'question', 500, true)
   const context = validateWorkContext(input.context)
   const today = seoulToday()
   const structured = (result, mode = 'structured', outcome) => timing.finish(Response.json(result), mode, outcome)
@@ -390,6 +410,9 @@ export async function assistant(db, request, user) {
   if (!context && /^그\s*중/u.test(question)) {
     return structured({ kind: 'assignment', sources: [], answer: '어떤 업무를 기준으로 볼까요? 담당자나 팀을 함께 알려주세요.', unavailable: false }, 'context', 'clarify')
   }
+  const mention = extractConditions(question, { today })
+  if (mention.team && mention.words.length) question = await timing.measure('scope', () => normalizeMentionedTeam(db, question))
+  const searchScope = extractConditions(question, { today })
   const urgent = urgentWords.test(question)
   let filters = workQuestion(question, context, user.name, today)
   // "제일 급한 거 뭐야?"처럼 조건 없이 물으면 내 미완료 업무에서 고른다.
@@ -399,12 +422,12 @@ export async function assistant(db, request, user) {
     && await timing.measure('sql', () => isPersonName(db, filters.keyword))) filters = { ...filters, name: filters.keyword, keyword: null }
   if (filters) {
     const result = await timing.measure('sql', () => assignedWork(db, user, filters, { urgent }))
-    // 키워드로 좁혔는데 업무가 없으면 단정하지 않고 원문 검색으로 넘긴다.
-    if (result.sources.length || !filters.keyword) return structured(result)
+    // 팀이나 담당자가 지정된 업무 목록은 0건이어도 일반 원문 검색으로 넘어가지 않는다.
+    if (result.sources.length || !filters.keyword || filters.name || filters.team) return structured(result)
   }
   let reference = null
   if (prefix) {
-    reference = routes.length === 1 ? await timing.measure('reference', () => linkedSource(db, user, routes[0])) : null
+    reference = routes.length === 1 ? await timing.measure('reference', () => linkedSource(db, user, routes[0], searchScope.team)) : null
     if (!reference) {
       const answer = routes.length > 1 ? '앞서 나온 원문이 여러 건입니다. 어느 업무나 회의인지 제목이나 업무 번호를 알려주세요.'
         : '어느 업무나 회의를 말씀하시는지 제목이나 업무 번호를 알려주세요.'
@@ -424,13 +447,13 @@ export async function assistant(db, request, user) {
   const hits = timing.measure('vector', () => vectorHits(searchQuestion, user, request.signal))
   const prependReference = (source, sources) => source ? [source, ...sources.filter(item => item.route !== source.route)].slice(0, 5) : sources
   // 질문에 기간이 있으면 그 기간의 원문만 남긴다(없으면 전체). 같은 규칙을 재확인 결과에도 적용한다.
-  const askedRange = workPeriod(extractConditions(question, { today }).period, today)
+  const askedRange = workPeriod(searchScope.period, today)
   const inRange = items => {
     if (!askedRange) return items
     const matched = items.filter(item => item.date >= askedRange[0] && item.date <= askedRange[1])
-    return matched.length ? matched : items
+    return matched.length || searchScope.team ? matched : items
   }
-  const sources = inRange(prependReference(reference, await timing.measure('retrieval', () => findSources(db, user, terms, workId, hits, timing))))
+  const sources = inRange(prependReference(reference, await timing.measure('retrieval', () => findSources(db, user, terms, workId, hits, timing, searchScope.team))))
   if (!sources.length) return timing.finish(Response.json({ sources, answer: null, unavailable: false }), 'rag', 'no-source')
   // 건수·비율·사람·결재처럼 정확한 값을 묻는데 위 조회로 답하지 못한 질문은 모델이 숫자·이름을 지어내지 않게 원문만 보여준다.
   if (factQuestion.test(question)) {
@@ -462,9 +485,9 @@ export async function assistant(db, request, user) {
   const viewer = await requireUser(db, request)
   if (viewer.id !== user.id) throw new ApiError(403, 'FORBIDDEN', '질문을 다시 제출해 주세요.')
   const latest = await timing.measure('recheck', async () => {
-    const freshReference = reference && await linkedSource(db, viewer, reference.route)
+    const freshReference = reference && await linkedSource(db, viewer, reference.route, searchScope.team)
     if (reference && !freshReference) return []
-    return inRange(prependReference(freshReference, await findSources(db, viewer, terms, workId, hits)))
+    return inRange(prependReference(freshReference, await findSources(db, viewer, terms, workId, hits, undefined, searchScope.team)))
   })
   const changed = JSON.stringify(latest) !== JSON.stringify(sources)
   if (changed) answer = null
